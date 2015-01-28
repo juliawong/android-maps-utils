@@ -1,14 +1,13 @@
 package com.google.maps.android.kml;
 
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
 
 /**
- * Created by lavenderc on 12/3/14.
- *
- * Represents a placemark which is either a point, linestring, polygon or multigeometry
- * Stores the properties about the placemark including coordinates
+ * Represents a basic_placemark which is either a {@link com.google.maps.android.kml.KmlPoint},
+ * {@link
+ * com.google.maps.android.kml.KmlLineString}, {@link com.google.maps.android.kml.KmlPolygon} or a
+ * {@link com.google.maps.android.kml.KmlMultiGeometry}. Stores the properties and styles of the
+ * basic_placemark.
  */
 public class KmlPlacemark {
 
@@ -16,7 +15,9 @@ public class KmlPlacemark {
 
     private final String mStyle;
 
-    private HashMap<String, String> mPlacemarkProperties;
+    private final KmlStyle mInlineStyle;
+
+    private HashMap<String, String> mProperties;
 
     /**
      * Creates a new KmlPlacemark object
@@ -25,15 +26,17 @@ public class KmlPlacemark {
      * @param style      style id to store
      * @param properties properties hashmap to store
      */
-    public KmlPlacemark(KmlGeometry geometry, String style, HashMap<String, String> properties) {
-        mPlacemarkProperties = new HashMap<String, String>();
+    public KmlPlacemark(KmlGeometry geometry, String style, KmlStyle inlineStyle,
+            HashMap<String, String> properties) {
+        mProperties = new HashMap<String, String>();
         mGeometry = geometry;
         mStyle = style;
-        mPlacemarkProperties = properties;
+        mInlineStyle = inlineStyle;
+        mProperties = properties;
     }
 
     /**
-     * Gets the style id associated with the placemark
+     * Gets the style id associated with the basic_placemark
      *
      * @return style id
      */
@@ -42,16 +45,31 @@ public class KmlPlacemark {
     }
 
     /**
-     * Gets the properties hashmap
+     * Gets the inline style that was found
      *
-     * @return properties hashmap
+     * @return InlineStyle or null if not found
      */
-    public Iterator<Map.Entry<String, String>> getProperties() {
-        return mPlacemarkProperties.entrySet().iterator();
+    public KmlStyle getInlineStyle() {
+        return mInlineStyle;
     }
 
+    /**
+     * Gets the property entry set
+     *
+     * @return property entry set
+     */
+    public Iterable getProperties() {
+        return mProperties.entrySet();
+    }
+
+    /**
+     * Gets the property based on property name
+     *
+     * @param keyValue Property name to retrieve value
+     * @return property value, null if not found
+     */
     public String getProperty(String keyValue) {
-        return mPlacemarkProperties.get(keyValue);
+        return mProperties.get(keyValue);
     }
 
     /**
@@ -63,8 +81,33 @@ public class KmlPlacemark {
         return mGeometry;
     }
 
-    public boolean hasProperty (String keyValue) {
-        return mPlacemarkProperties.containsKey(keyValue);
+    /**
+     * Gets whether the basic has a given property
+     *
+     * @param keyValue key value to check
+     * @return true if the key is stored in the properties, false otherwise
+     */
+    public boolean hasProperty(String keyValue) {
+        return mProperties.containsKey(keyValue);
     }
 
+    /**
+     * Gets whether the placemark has a properties
+     *
+     * @return true if there are properties in the properties hashmap, false otherwise
+     */
+    public boolean hasProperties() {
+        return mProperties.size() > 0;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("Placemark").append("{");
+        sb.append("\n style id=").append(mStyle);
+        sb.append(",\n inline style=").append(mInlineStyle);
+        sb.append(",\n properties=").append(mProperties);
+        sb.append(",\n geometry=").append(mGeometry);
+        sb.append("\n}\n");
+        return sb.toString();
+    }
 }

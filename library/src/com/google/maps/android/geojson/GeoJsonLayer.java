@@ -1,18 +1,17 @@
 package com.google.maps.android.geojson;
 
-import android.content.Context;
-
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.LatLngBounds;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.content.Context;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.Set;
 
 
 /**
@@ -82,7 +81,6 @@ public class GeoJsonLayer {
             // Read each line of the GeoJSON file into a string
             while ((line = reader.readLine()) != null) {
                 result.append(line);
-                // TODO: catch something derp
             }
         } finally {
             reader.close();
@@ -96,7 +94,7 @@ public class GeoJsonLayer {
      *
      * @return set of GeoJsonFeature elements
      */
-    public Set<GeoJsonFeature> getFeatures() {
+    public Iterable<GeoJsonFeature> getFeatures() {
         return mRenderer.getFeatures();
     }
 

@@ -3,7 +3,7 @@ package com.google.maps.android.kml;
 import com.google.android.gms.maps.model.LatLng;
 
 /**
- * Created by lavenderch on 12/22/14.
+ * Represents a KML Point. Contains a single coordinate.
  */
 public class KmlPoint implements KmlGeometry<LatLng> {
 
@@ -41,5 +41,13 @@ public class KmlPoint implements KmlGeometry<LatLng> {
      */
     public LatLng getKmlGeometryObject() {
         return mCoordinate;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder(GEOMETRY_TYPE).append("{");
+        sb.append("\n coordinates=").append(mCoordinate);
+        sb.append("\n}\n");
+        return sb.toString();
     }
 }

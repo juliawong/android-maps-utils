@@ -5,7 +5,8 @@ import com.google.android.gms.maps.model.LatLng;
 import java.util.ArrayList;
 
 /**
- * Represents a series of coordinates in a placemark
+ * Represents a KML Polygon. Contains a single array of outer boundary coordinates and an array of
+ * arrays for the inner boundary coordinates.
  */
 public class KmlPolygon implements KmlGeometry<ArrayList<ArrayList<LatLng>>> {
 
@@ -67,8 +68,19 @@ public class KmlPolygon implements KmlGeometry<ArrayList<ArrayList<LatLng>>> {
     public ArrayList<ArrayList<LatLng>> getKmlGeometryObject() {
         ArrayList<ArrayList<LatLng>> coordinates = new ArrayList<ArrayList<LatLng>>();
         coordinates.add(mOuterBoundaryCoordinates);
-        coordinates.addAll(mInnerBoundaryCoordinates);
+        //Polygon objects do not have to have inner holes
+        if (mInnerBoundaryCoordinates != null) {
+            coordinates.addAll(mInnerBoundaryCoordinates);
+        }
         return coordinates;
     }
 
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder(GEOMETRY_TYPE).append("{");
+        sb.append("\n outer coordinates=").append(mOuterBoundaryCoordinates);
+        sb.append(",\n inner coordinates=").append(mInnerBoundaryCoordinates);
+        sb.append("\n}\n");
+        return sb.toString();
+    }
 }

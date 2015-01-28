@@ -1,23 +1,25 @@
 package com.google.maps.android.kml;
 
-import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
-import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolygonOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 
-import android.graphics.Bitmap;
 import android.graphics.Color;
 
 import java.util.HashMap;
+import java.util.HashSet;
 
 /**
- * Created by lavenderc on 12/2/14.
- *
  * Represents the defined styles in the KML document
  */
 public class KmlStyle {
+
+    private final static int HSV_VALUES = 3;
+
+    private final static int HUE_VALUE = 0;
+
+    private final static int INITIAL_SCALE = 1;
 
     private final MarkerOptions mMarkerOptions;
 
@@ -25,7 +27,9 @@ public class KmlStyle {
 
     private final PolygonOptions mPolygonOptions;
 
-    private HashMap<String, String> mBalloonOptions;
+    private final HashMap<String, String> mBalloonOptions;
+
+    private final HashSet<String> mStylesSet;
 
     private boolean mFill = true;
 
@@ -35,13 +39,13 @@ public class KmlStyle {
 
     private double mScale;
 
-    private HashMap<String, Integer> mColorModeOptions;
-
-    private static int NORMAL_COLOR_MODE = 0;
-
-    private static int RANDOM_COLOR_MODE = 1;
-
     private String mStyleId;
+
+    private boolean mIconRandomColorMode;
+
+    private boolean mLineRandomColorMode;
+
+    private boolean mPolyRandomColorMode;
 
     /**
      * Creates a new Style object
@@ -52,16 +56,44 @@ public class KmlStyle {
         mPolylineOptions = new PolylineOptions();
         mPolygonOptions = new PolygonOptions();
         mBalloonOptions = new HashMap<String, String>();
-        mColorModeOptions = new HashMap<String, Integer>();
-        mScale = 1.0;
+        mStylesSet = new HashSet<String>();
+        mScale = INITIAL_SCALE;
+        mIconRandomColorMode = false;
+        mLineRandomColorMode = false;
+        mPolyRandomColorMode = false;
     }
 
-    public void setStyleId (String styleId) {
+    /**
+     * Sets the text for the info window; no other ballonstyles are supported
+     *
+     * @param text text to put in an info window
+     */
+    public void setInfoWindowText(String text) {
+        mBalloonOptions.put("text", text);
+    }
+
+    /**
+     * @return the string representing a style id, null otherwise
+     */
+    public String getStyleId() {
+        return mStyleId;
+    }
+
+    /**
+     * @param styleId style id for this style
+     */
+    public void setStyleId(String styleId) {
         mStyleId = styleId;
     }
 
-    public String getStyleId () {
-        return mStyleId;
+    /**
+     * Checks if a given style has been set
+     *
+     * @param style style to check if set
+     * @return true if style was set, false otherwise
+     */
+    public boolean isStyleSet(String style) {
+        return mStylesSet.contains(style);
     }
 
     /**
@@ -69,7 +101,7 @@ public class KmlStyle {
      *
      * @return true if there is a fill, false if no fill
      */
-    public boolean isFill() {
+    public boolean hasFill() {
         return mFill;
     }
 
@@ -83,54 +115,41 @@ public class KmlStyle {
     }
 
     /**
-     * Sets the fill color for Polygons
+     * Gets the icon scale
      *
-     * @param color fill color to set
+     * @return scale value
      */
-    public void setFillColor(String color) {
-        // Add # to allow for mOutline color to be parsed correctly
-        mPolygonOptions.fillColor(Color.parseColor("#" + color));
-    }
-
-    public void setMarkerColor (String color) {
-        float[] hsvValues = new float[3];
-        Color.colorToHSV(Color.parseColor("#" + color), hsvValues);
-        float hue = hsvValues[0];
-        mMarkerOptions.icon(BitmapDescriptorFactory.defaultMarker(hue));
+    public double getIconScale() {
+        return mScale;
     }
 
     /**
-     * Sets the heading for Points. This is also known as rotation
+     * Sets the icon scale
      *
-     * @param heading heading to set
+     * @param scale scale value
      */
-    public void setHeading(float heading) {
-        mMarkerOptions.rotation(heading);
+    public void setIconScale(double scale) {
+        mScale = scale;
+        mStylesSet.add("iconScale");
     }
 
-    // TODO support pixel and inset for custom marker images
+    /**
+     * Gets whether the Polygon has an outline
+     *
+     * @return true if Polygon has an outline, false if no outline
+     */
+    public boolean hasOutline() {
+        return mOutline;
+    }
 
     /**
-     * Sets the hotspot for Points. This is also known as anchor point
+     * Sets whether the Polygon will have an outline
      *
-     * @param x      x value of a point on the icon
-     * @param y      y value of a point on the icon
-     * @param xUnits units in which the x value is specified
-     * @param yUnits units in which the y value is specified
+     * @param outline true if there is an outline, false if no outline
      */
-    public void setHotSpot(float x, float y, String xUnits, String yUnits) {
-        // TODO(lavenderch): improve support for this, ignore default marker
-        float xAnchor = 0.5f;
-        float yAnchor = 1.0f;
-        // Set x coordinate
-        if (xUnits.equals("fraction")) {
-            xAnchor = x;
-        }
-        if (yUnits.equals("fraction")) {
-            yAnchor = y;
-        }
-
-        mMarkerOptions.anchor(xAnchor, yAnchor);
+    public void setOutline(boolean outline) {
+        mOutline = outline;
+        mStylesSet.add("outline");
     }
 
     /**
@@ -153,52 +172,96 @@ public class KmlStyle {
             // Icon stored locally
             mMarkerOptions.icon(BitmapDescriptorFactory.fromPath(iconUrl));
         }
+        mStylesSet.add("iconUrl");
     }
 
-    public void setIconScale(double scale) {
-        mScale = scale;
+    /**
+     * Sets the fill color for Polygons
+     *
+     * @param color fill color to set
+     */
+    public void setFillColor(String color) {
+        // Add # to allow for mOutline color to be parsed correctly
+        mPolygonOptions.fillColor(Color.parseColor("#" + color));
+        mStylesSet.add("fillColor");
     }
 
-    public double getIconScale() {
-        return mScale;
+    /**
+     * Sets the marker color
+     *
+     * @param stringColor string of color to set
+     */
+    public void setMarkerColor(String stringColor) {
+        // TODO: implement random colorMode
+        float[] hsvValues = new float[HSV_VALUES];
+        // make hexadecimal representation
+        int integerColor = Color.parseColor("#" + stringColor);
+        // make hexadecimal representation into hsv values, store in array
+        Color.colorToHSV(integerColor, hsvValues);
+        // first element is the hue value
+        float hue = hsvValues[HUE_VALUE];
+        mMarkerOptions.icon(BitmapDescriptorFactory.defaultMarker(hue));
+        mStylesSet.add("markerColor");
     }
 
-    public void setInfoWindow(String text) {
-        mBalloonOptions.put("text", text);
+    /**
+     * Sets the heading for Points. This is also known as rotation.
+     *
+     * @param heading heading to set
+     */
+    public void setHeading(float heading) {
+        mMarkerOptions.rotation(heading);
+        mStylesSet.add("heading");
     }
 
-    public void setColorMode(String geometryType, String colorModeString) {
-        if (colorModeString.equals("normal")) {
-            mColorModeOptions.put(geometryType, NORMAL_COLOR_MODE);
-        } else {
-            mColorModeOptions.put(geometryType, RANDOM_COLOR_MODE);
+    /**
+     * Sets the hotspot for Points. This is also known as anchor point.
+     *
+     * @param x      x value of a point on the icon
+     * @param y      y value of a point on the icon
+     * @param xUnits units in which the x value is specified
+     * @param yUnits units in which the y value is specified
+     */
+    public void setHotSpot(float x, float y, String xUnits, String yUnits) {
+        float xAnchor = 0.5f;
+        float yAnchor = 1.0f;
+        // Set x coordinate
+        if (xUnits.equals("fraction")) {
+            xAnchor = x;
         }
+        if (yUnits.equals("fraction")) {
+            yAnchor = y;
+        }
+
+        mMarkerOptions.anchor(xAnchor, yAnchor);
+        mStylesSet.add("hotSpot");
     }
 
-    public int getColorMode(String geometryType) {
-        return mColorModeOptions.get(geometryType);
+    public void setIconColorMode(String colorMode) {
+        mIconRandomColorMode = colorMode.equals("random");
+        mStylesSet.add("iconColorMode");
     }
 
-    public boolean hasColorMode(String geometryType) {
-        return mColorModeOptions.containsKey(geometryType);
+    public boolean isIconRandomColorMode() {
+        return mIconRandomColorMode;
     }
 
-    /**
-     * Gets whether the Polygon has an outline
-     *
-     * @return true if Polygon has an outline, false if no outline
-     */
-    public boolean isOutline() {
-        return mOutline;
+    public void setLineColorMode(String colorMode) {
+        mLineRandomColorMode = colorMode.equals("random");
+        mStylesSet.add("lineColorMode");
     }
 
-    /**
-     * Sets whether the Polygon will have an outline
-     *
-     * @param outline true if there is an outline, false if no outline
-     */
-    public void setOutline(boolean outline) {
-        mOutline = outline;
+    public boolean isLineRandomColorMode() {
+        return mLineRandomColorMode;
+    }
+
+    public void setPolyColorMode(String colorMode) {
+        mPolyRandomColorMode = colorMode.equals("random");
+        mStylesSet.add("polyColorMode");
+    }
+
+    public boolean isPolyRandomColorMode() {
+        return mPolyRandomColorMode;
     }
 
     /**
@@ -210,6 +273,7 @@ public class KmlStyle {
         // Add # to allow for mOutline color to be parsed correctly
         mPolylineOptions.color(Color.parseColor("#" + color));
         mPolygonOptions.strokeColor(Color.parseColor("#" + color));
+        mStylesSet.add("outlineColor");
     }
 
     /**
@@ -220,6 +284,11 @@ public class KmlStyle {
     public void setWidth(Float width) {
         mPolylineOptions.width(width);
         mPolygonOptions.strokeWidth(width);
+        mStylesSet.add("width");
+    }
+
+    public HashMap<String, String> getBalloonOptions() {
+        return mBalloonOptions;
     }
 
     /**
@@ -230,12 +299,9 @@ public class KmlStyle {
     public MarkerOptions getMarkerOptions() {
         MarkerOptions markerOptions = new MarkerOptions();
         markerOptions.rotation(mMarkerOptions.getRotation());
+        markerOptions.anchor(mMarkerOptions.getAnchorU(), mMarkerOptions.getAnchorV());
         markerOptions.icon(mMarkerOptions.getIcon());
         return markerOptions;
-    }
-
-    public HashMap<String, String> getBalloonOptions() {
-        return mBalloonOptions;
     }
 
     /**
@@ -265,5 +331,18 @@ public class KmlStyle {
             polygonOptions.strokeWidth(mPolygonOptions.getStrokeWidth());
         }
         return polygonOptions;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("Style").append("{");
+        sb.append("\n balloon options=").append(mBalloonOptions);
+        sb.append(",\n fill=").append(mFill);
+        sb.append(",\n outline=").append(mOutline);
+        sb.append(",\n icon url=").append(mIconUrl);
+        sb.append(",\n scale=").append(mScale);
+        sb.append(",\n style id=").append(mStyleId);
+        sb.append("\n}\n");
+        return sb.toString();
     }
 }

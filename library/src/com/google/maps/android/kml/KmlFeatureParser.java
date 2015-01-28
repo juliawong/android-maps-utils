@@ -1,6 +1,7 @@
 package com.google.maps.android.kml;
 
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -10,55 +11,99 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
- * Created by lavenderch on 1/12/15.
+ * Parses the feature of a given KML file into a KmlPlacemark or KmlGroundOverlay object
  */
-public class KmlPlacemarkParser {
+/* package */ class KmlFeatureParser {
 
+    private final static String GEOMETRY_REGEX = "Point|LineString|Polygon|MultiGeometry";
 
-    private static final String GEOMETRY_TAG_REGEX = "Point|LineString|Polygon|MultiGeometry";
+    private final static int LONGITUDE_INDEX = 0;
 
-    private static final int LONGITUDE_INDEX = 0;
+    private final static int LATITUDE_INDEX = 1;
 
-    private static final int LATITUDE_INDEX = 1;
+    private final static String PROPERTY_REGEX = "name|description|visibility";
 
-    private static final String PROPERTY_TAG_REGEX = "name|description|visibility";
+    private final static String BOUNDARY_REGEX = "outerBoundaryIs|innerBoundaryIs";
 
-    private static final String STYLE_TAG = "styleUrl";
+    private final static String EXTENDED_DATA = "ExtendedData";
 
-    private XmlPullParser mParser;
+    private final static String STYLE_URL_TAG = "styleUrl";
+
+    private final static String STYLE_TAG = "Style";
+
+    private final XmlPullParser mParser;
 
     private KmlPlacemark mPlacemark;
 
-    public KmlPlacemarkParser(XmlPullParser parser) {
+    public KmlFeatureParser(XmlPullParser parser) {
         mParser = parser;
         mPlacemark = null;
     }
 
     /**
-     * Creates a KmlPlacemark object for each placemark detected if they contain a geometry. Also
-     * stores styles and properties for the given placemark.
+     * Creates a KmlPlacemark object for each basic_placemark detected if they contain a geometry.
+     * Also
+     * stores styles and properties for the given basic_placemark.
      */
-    public void createPlacemark() throws IOException, XmlPullParserException {
-        String style = null;
+    /* package */ void createPlacemark() throws IOException, XmlPullParserException {
+        String styleId = null;
+        KmlStyle inlineStyle = null;
         HashMap<String, String> properties = new HashMap<String, String>();
         KmlGeometry geometry = null;
         int eventType = mParser.getEventType();
         while (!(eventType == XmlPullParser.END_TAG && mParser.getName().equals("Placemark"))) {
             if (eventType == XmlPullParser.START_TAG) {
-                if (mParser.getName().equals(STYLE_TAG)) {
-                    style = mParser.nextText();
-                } if (mParser.getName().matches(GEOMETRY_TAG_REGEX)) {
+                if (mParser.getName().equals(STYLE_URL_TAG)) {
+                    styleId = mParser.nextText();
+                } else if (mParser.getName().matches(GEOMETRY_REGEX)) {
                     geometry = createGeometry(mParser.getName());
-                }  if (mParser.getName().matches(PROPERTY_TAG_REGEX)) {
+                } else if (mParser.getName().matches(PROPERTY_REGEX)) {
                     properties.put(mParser.getName(), mParser.nextText());
+                } else if (mParser.getName().equals(EXTENDED_DATA)) {
+                    properties.putAll(setExtendedDataProperties());
+                } else if (mParser.getName().equals(STYLE_TAG)) {
+                    KmlStyleParser styleParser = new KmlStyleParser(mParser);
+                    styleParser.createStyle();
+                    inlineStyle = styleParser.getStyle();
                 }
             }
             eventType = mParser.next();
         }
         // If there is no geometry associated with the Placemark then we do not add it
         if (geometry != null) {
-            mPlacemark = new KmlPlacemark(geometry, style, properties);
+            mPlacemark = new KmlPlacemark(geometry, styleId, inlineStyle, properties);
         }
+    }
+
+    /* package */ KmlGroundOverlay createGroundOverlay()
+            throws IOException, XmlPullParserException {
+        // TODO: add support for color
+        KmlGroundOverlay groundOverlay = new KmlGroundOverlay();
+        int eventType = mParser.getEventType();
+        while (!(eventType == XmlPullParser.END_TAG && mParser.getName().equals("GroundOverlay"))) {
+            if (eventType == XmlPullParser.START_TAG) {
+                if (mParser.getName().equals("Icon")) {
+                    while (!(eventType == XmlPullParser.END_TAG && mParser.getName()
+                            .equals("Icon"))) {
+                        if (eventType == XmlPullParser.START_TAG && mParser.getName()
+                                .equals("href")) {
+                            groundOverlay.setImageUrl(mParser.nextText());
+                        }
+                        eventType = mParser.next();
+                    }
+                } else if (mParser.getName().equals("LatLonBox")) {
+                    groundOverlay.setLatLngBox(createLatLonBox(groundOverlay));
+                } else if (mParser.getName().equals("drawOrder")) {
+                    groundOverlay.setDrawOrder(Float.parseFloat(mParser.nextText()));
+                } else if (mParser.getName().equals("visibility")) {
+                    groundOverlay.setVisibility(Integer.parseInt(mParser.nextText()));
+                } else if (mParser.getName().equals("ExtendedData")) {
+                    groundOverlay.setProperties(setExtendedDataProperties());
+                }
+            }
+            eventType = mParser.next();
+        }
+        return groundOverlay;
     }
 
     /**
@@ -84,6 +129,28 @@ public class KmlPlacemarkParser {
             eventType = mParser.next();
         }
         return null;
+    }
+
+    /**
+     * Adds untyped name value pairs parsed from the ExtendedData
+     */
+    private HashMap<String, String> setExtendedDataProperties()
+            throws XmlPullParserException, IOException {
+        HashMap<String, String> properties = new HashMap<String, String>();
+        String propertyKey = null;
+        int eventType = mParser.getEventType();
+        while (!(eventType == XmlPullParser.END_TAG && mParser.getName().equals(EXTENDED_DATA))) {
+            if (eventType == XmlPullParser.START_TAG) {
+                if (mParser.getName().equals("Data")) {
+                    propertyKey = mParser.getAttributeValue(null, "name");
+                } else if (mParser.getName().equals("value") && propertyKey != null) {
+                    properties.put(propertyKey, mParser.nextText());
+                    propertyKey = null;
+                }
+            }
+            eventType = mParser.next();
+        }
+        return properties;
     }
 
     /**
@@ -160,24 +227,19 @@ public class KmlPlacemarkParser {
         // Indicates if an outer boundary needs to be defined
         Boolean isOuterBoundary = false;
         // Indicates if an inner boundary needs to be defined
-        Boolean isInnerBoundary = false;
         ArrayList<LatLng> outerBoundaryCoordinates = new ArrayList<LatLng>();
         ArrayList<ArrayList<LatLng>> innerBoundaryCoordinates = new ArrayList<ArrayList<LatLng>>();
-
         int eventType = mParser.getEventType();
+
         while (!(eventType == XmlPullParser.END_TAG && mParser.getName().equals("Polygon"))) {
             if (eventType == XmlPullParser.START_TAG) {
-                if (mParser.getName().equals("outerBoundaryIs")) {
-                    isOuterBoundary = true;
-                } else if (mParser.getName().equals("innerBoundaryIs")) {
-                    isInnerBoundary = true;
+                if (mParser.getName().matches(BOUNDARY_REGEX)) {
+                    isOuterBoundary = mParser.getName().equals("outerBoundaryIs");
                 } else if (mParser.getName().equals("coordinates")) {
                     if (isOuterBoundary) {
                         outerBoundaryCoordinates = convertToLatLngArray(mParser.nextText());
-                        isOuterBoundary = false;
-                    } else if (isInnerBoundary) {
+                    } else {
                         innerBoundaryCoordinates.add(convertToLatLngArray(mParser.nextText()));
-                        isInnerBoundary = false;
                     }
                 }
             }
@@ -197,7 +259,7 @@ public class KmlPlacemarkParser {
         int eventType = mParser.next();
         while (!(eventType == XmlPullParser.END_TAG && mParser.getName().equals("MultiGeometry"))) {
             if (eventType == XmlPullParser.START_TAG && mParser.getName()
-                    .matches(GEOMETRY_TAG_REGEX)) {
+                    .matches(GEOMETRY_REGEX)) {
                 geometries.add(createGeometry(mParser.getName()));
             }
             eventType = mParser.next();
@@ -205,7 +267,48 @@ public class KmlPlacemarkParser {
         return new KmlMultiGeometry(geometries);
     }
 
-    public KmlPlacemark getPlacemark() {
+    private LatLngBounds createLatLonBox(KmlGroundOverlay groundOverlay)
+            throws XmlPullParserException, IOException {
+        Double north = 0.0;
+        Double south = 0.0;
+        Double east = 0.0;
+        Double west = 0.0;
+
+        int eventType = mParser.next();
+        while (!(eventType == XmlPullParser.END_TAG && mParser.getName().equals("LatLonBox"))) {
+            if (eventType == XmlPullParser.START_TAG) {
+                if (mParser.getName().equals("north")) {
+                    north = Double.parseDouble(mParser.nextText());
+                } else if (mParser.getName().equals("south")) {
+                    south = Double.parseDouble(mParser.nextText());
+                } else if (mParser.getName().equals("east")) {
+                    east = Double.parseDouble(mParser.nextText());
+                } else if (mParser.getName().equals("west")) {
+                    west = Double.parseDouble(mParser.nextText());
+                } else if (mParser.getName().equals("rotation")) {
+                    groundOverlay.setRotation(Float.parseFloat(mParser.nextText()));
+                }
+            }
+            eventType = mParser.next();
+        }
+        return createLatLngBounds(north, south, east, west);
+    }
+
+    /**
+     * Given a set of four latLng coordinates, creates a LatLng Bound
+     *
+     * @param north North coordinate of the bounding box
+     * @param south South coordinate of the bounding box
+     * @param east  East coordinate of the bounding box
+     * @param west  West coordinate of the bounding box
+     */
+    private LatLngBounds createLatLngBounds(Double north, Double south, Double east, Double west) {
+        LatLng southWest = new LatLng(south, west);
+        LatLng northEast = new LatLng(north, east);
+        return new LatLngBounds(southWest, northEast);
+    }
+
+    /* package */ KmlPlacemark getPlacemark() {
         return mPlacemark;
     }
 }

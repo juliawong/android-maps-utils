@@ -1,45 +1,38 @@
 package com.google.maps.android.kml;
 
+import com.google.android.gms.maps.model.GroundOverlay;
+
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
 
 /**
- * Created by lavenderch on 1/14/15.
+ * Represents a KML Document or Folder.
  */
-public class KmlContainer implements KmlContainerInterface {
+public class KmlContainer {
 
-    private HashMap<String, String> mContainerProperties;
+    private final HashMap<String, String> mProperties;
 
-    private HashMap<KmlPlacemark, Object> mPlacemarks;
+    private final HashMap<KmlPlacemark, Object> mPlacemarks;
+
+    private final ArrayList<KmlContainer> mContainers;
+
+    private final HashMap<KmlGroundOverlay, GroundOverlay> mGroundOverlays;
+
+    private final HashMap<String, String> mStyleMap;
 
     private HashMap<String, KmlStyle> mStyles;
 
-    private ArrayList<KmlContainerInterface> mContainers;
-
-    private HashMap<String, String> mStyleMap;
-
     public KmlContainer() {
-        mContainerProperties = new HashMap<String, String>();
+        mProperties = new HashMap<String, String>();
         mPlacemarks = new HashMap<KmlPlacemark, Object>();
-        mStyles = new  HashMap<String, KmlStyle>();
+        mStyles = new HashMap<String, KmlStyle>();
         mStyleMap = new HashMap<String, String>();
-        mContainers = new ArrayList<KmlContainerInterface>();
-    }
-
-    /**
-     * Takes an ArrayList of styles and assings these folders with the styles
-     * @param styles
-     */
-    public void setStyles( HashMap<String, KmlStyle> styles) {
-        mStyles = styles;
+        mContainers = new ArrayList<KmlContainer>();
+        mGroundOverlays = new HashMap<KmlGroundOverlay, GroundOverlay>();
     }
 
     /**
      * Gets a style based on an ID
-     * @param styleID
-     * @return
      */
     public KmlStyle getStyle(String styleID) {
         return mStyles.get(styleID);
@@ -49,24 +42,33 @@ public class KmlContainer implements KmlContainerInterface {
      * @return HashMap of styles, with key values representing style name (ie, color) and
      * value representing style value (ie #FFFFFF)
      */
-    public  HashMap<String, KmlStyle> getStyles() {
+    /* package */ HashMap<String, KmlStyle> getStyles() {
         return mStyles;
     }
 
     /**
-     * @param placemarks Placemark for the container to contain
-     * @param object    Corresponding GoogleMap map object of the placemark (if it has been added
-     *                  to the map)
+     * Takes an ArrayList of styles and assigns these folders with the styles
      */
-    public void setPlacemark(KmlPlacemark placemarks, Object object) {
-       mPlacemarks.put(placemarks, object);
+    /* package */ void setStyles(HashMap<String, KmlStyle> styles) {
+        mStyles = styles;
+    }
+
+    /**
+     * @param placemarks Placemark for the container to contain
+     * @param object     Corresponding GoogleMap map object of the basic_placemark (if it has been
+     *                   added
+     *                   to the map)
+     */
+    /* package */ void setPlacemark(KmlPlacemark placemarks, Object object) {
+        mPlacemarks.put(placemarks, object);
     }
 
     /**
      * Add a nested container
+     *
      * @param container Container to nest within the current instance of the container
      */
-    public void addChildContainer(KmlContainer container) {
+    /* package */ void addChildContainer(KmlContainer container) {
         mContainers.add(container);
     }
 
@@ -79,82 +81,144 @@ public class KmlContainer implements KmlContainerInterface {
 
     /**
      * Sets a property to be contained by the container
+     *
      * @param propertyName  Name of the property, ie "name"
      * @param propertyValue Value of the property, ie "Arizona"
      */
     public void setProperty(String propertyName, String propertyValue) {
-        mContainerProperties.put(propertyName, propertyValue);
+        mProperties.put(propertyName, propertyValue);
     }
 
     /**
      * Sets a style to be contained by the container
-     * @param styleId   Name or ID of the style
-     * @param style     KmlStyle object
+     *
+     * @param styleId Name or ID of the style
+     * @param style   KmlStyle object
      */
     public void setStyle(String styleId, KmlStyle style) {
         mStyles.put(styleId, style);
     }
 
-    public HashMap<String, String> getStyleMap() {
+    /**
+     * @return A map of strings representing a style map, null if no style maps exist
+     */
+    /* package */ HashMap<String, String> getStyleMap() {
         return mStyleMap;
     }
 
-
-    public void setStyleMap(HashMap<String, String> styleMap) {
+    /**
+     * @param styleMap Adds a map of strings representing a style map
+     */
+    /* package */ void setStyleMap(HashMap<String, String> styleMap) {
         mStyleMap.putAll(styleMap);
     }
 
     /**
-     * @param propertyName Name of the property, ie "name"
-     * @return  Value of the property, ie "Arizona"
+     * Add a ground overlay for this container
+     *
+     * @param groundOverlay ground overlay to add
+     */
+    /* package */ void addGroundOverlay(KmlGroundOverlay groundOverlay) {
+        mGroundOverlays.put(groundOverlay, null);
+    }
+
+    /* package */ HashMap<KmlGroundOverlay, GroundOverlay> getGroundOverlayHashMap() {
+        return mGroundOverlays;
+    }
+
+    /**
+     * Gets the value of a property based on the given key
+     *
+     * @param propertyName property key to find
+     * @return value of property found, null if key doesn't exist
      */
     public String getKmlProperty(String propertyName) {
-        return mContainerProperties.get(propertyName);
+        return mProperties.get(propertyName);
     }
 
     /**
-     * @return True if container has properties, false otherwise
+     * Gets whether the container has any properties
+     *
+     * @return true if there are properties, false otherwise
      */
     public boolean hasKmlProperties() {
-        return mContainerProperties.size() > 0;
-    }
-
-
-    public boolean hasKmlProperty(String keyValue) {
-        return mContainerProperties.containsKey(keyValue);
+        return mProperties.size() > 0;
     }
 
     /**
-     * @return True is container has nested containers, false otherwise
+     * Gets whether the given key exists in the properties
+     *
+     * @param keyValue property key to find
+     * @return true if key was found, false otherwise
+     */
+    public boolean hasKmlProperty(String keyValue) {
+        return mProperties.containsKey(keyValue);
+    }
+
+    /**
+     * Gets whether the container has containers
+     *
+     * @return true if there are containers, false otherwise
      */
     public boolean hasNestedKmlContainers() {
         return mContainers.size() > 0;
     }
 
     /**
-     *@return Iterator of containers within this instance of a container, null if it does not exist
+     * Gets an iterable of nested KmlContainers
+     *
+     * @return iterable of KmlContainers
      */
-    public Iterator getNestedKmlContainers() { return mContainers.iterator(); }
-
-    /**
-     * @return Iterator of Kml properties, null if it does not exist
-     */
-    public Iterator<Map.Entry<String, String>> getKmlProperties() {
-        return mContainerProperties.entrySet().iterator();
+    public Iterable<KmlContainer> getNestedKmlContainers() {
+        return mContainers;
     }
 
     /**
-     * @return KML placemarks, null if they do not exist
+     * Gets an iterable of the properties hashmap entries
+     *
+     * @return iterable of the properties hashmap entries
      */
-    public Iterator getKmlPlacemarks()  {
-        return mPlacemarks.entrySet().iterator();
+    public Iterable getKmlProperties() {
+        return mProperties.entrySet();
     }
 
     /**
-     * @return True is KML Placemarks exist
+     * Gets an iterable of KmlPlacemarks
+     *
+     * @return iterable of KmlPlacemarks
+     */
+    public Iterable<KmlPlacemark> getKmlPlacemarks() {
+        return mPlacemarks.keySet();
+    }
+
+    /**
+     * Gets whether the container has any placemarks
+     *
+     * @return true if there are placemarks, false otherwise
      */
     public boolean hasKmlPlacemarks() {
         return mPlacemarks.size() > 0;
     }
 
+    /**
+     * Gets an iterable of KmlGroundOverlay objects
+     *
+     * @return iterable of KmlGroundOverlay objects
+     */
+    public Iterable<KmlGroundOverlay> getGroundOverlays() {
+        return mGroundOverlays.keySet();
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("Container").append("{");
+        sb.append("\n properties=").append(mProperties);
+        sb.append(",\n placemarks=").append(mPlacemarks);
+        sb.append(",\n containers=").append(mContainers);
+        sb.append(",\n ground overlays=").append(mGroundOverlays);
+        sb.append(",\n style maps=").append(mStyleMap);
+        sb.append(",\n styles=").append(mStyles);
+        sb.append("\n}\n");
+        return sb.toString();
+    }
 }

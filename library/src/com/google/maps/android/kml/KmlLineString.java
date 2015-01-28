@@ -5,7 +5,7 @@ import com.google.android.gms.maps.model.LatLng;
 import java.util.ArrayList;
 
 /**
- * Represents a series of coordinates in a placemark
+ * Represents a KML LineString. Contains a single array of coordinates.
  */
 public class KmlLineString implements KmlGeometry<ArrayList<LatLng>> {
 
@@ -44,5 +44,11 @@ public class KmlLineString implements KmlGeometry<ArrayList<LatLng>> {
         return mCoordinates;
     }
 
-
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder(GEOMETRY_TYPE).append("{");
+        sb.append("\n coordinates=").append(mCoordinates);
+        sb.append("\n}\n");
+        return sb.toString();
+    }
 }
