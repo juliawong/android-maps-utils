@@ -20,9 +20,11 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.maps.android.geojson.GeoJsonLayer;
 import com.google.maps.android.geojson.GeoJsonPolygonStyle;
+import com.google.maps.android.kml.KmlLayer;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -42,7 +44,10 @@ public class MapsActivity extends ActionBarActivity {
         setUpMapIfNeeded();
         Intent intent = getIntent();
         if (Intent.ACTION_VIEW.equals(intent.getAction())) {
-            new DownloadGeoJsonFile(intent.getScheme()).execute(intent.getData());
+            if (intent.getData().toString().endsWith("json"))
+                new DownloadGeoJsonFile(intent.getScheme()).execute(intent.getData());
+            else if (intent.getData().toString().endsWith("kml"))
+                new DownloadKmlFile(intent.getScheme()).execute(intent.getData());
         }
     }
 
@@ -60,7 +65,7 @@ public class MapsActivity extends ActionBarActivity {
             final LayoutInflater inflater = getLayoutInflater();
             final View dialogView = inflater.inflate(R.layout.dialog_import_url, null);
 
-            builder.setTitle("Import GeoJSON from URL");
+            builder.setTitle("Import data from URL");
             final EditText editText = new EditText(getApplicationContext());
             //builder.setView(editText);
             builder.setView(dialogView);
@@ -71,6 +76,8 @@ public class MapsActivity extends ActionBarActivity {
                     Log.i("VALUE", value);
                     if (value.startsWith("http") && (value.endsWith(".json") || value.endsWith(".geojson"))) {
                         new DownloadGeoJsonFile("http").execute(Uri.parse(value));
+                    } else if (value.startsWith("http") && value.endsWith(".kml") ) {
+                        new DownloadKmlFile("http").execute(Uri.parse(value));
                     }
                 }
             });
@@ -140,11 +147,6 @@ public class MapsActivity extends ActionBarActivity {
         }
 
         @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-        }
-
-        @Override
         protected JSONObject doInBackground(Uri... params) {
             try {
                 InputStream stream = null;
@@ -174,15 +176,54 @@ public class MapsActivity extends ActionBarActivity {
 
         @Override
         protected void onPostExecute(JSONObject jsonObject) {
-            Log.i("JSON", jsonObject.toString());
-            GeoJsonLayer layer = new GeoJsonLayer(mMap, jsonObject);
-            // Set style of polygons to have a blue fill
-            GeoJsonPolygonStyle polygonStyle = new GeoJsonPolygonStyle();
-            polygonStyle.setFillColor(Color.BLUE);
-            polygonStyle.setGeodesic(true);
-            polygonStyle.setStrokeWidth(3);
-            layer.setDefaultPolygonStyle(polygonStyle);
-            layer.addGeoJsonDataToLayer();
+            if (jsonObject != null) {
+                GeoJsonLayer layer = new GeoJsonLayer(mMap, jsonObject);
+                // Set style of polygons to have a blue fill
+                GeoJsonPolygonStyle polygonStyle = new GeoJsonPolygonStyle();
+                polygonStyle.setFillColor(Color.BLUE);
+                polygonStyle.setGeodesic(true);
+                polygonStyle.setStrokeWidth(3);
+                layer.setDefaultPolygonStyle(polygonStyle);
+                layer.addGeoJsonDataToLayer();
+            }
+        }
+    }
+
+
+    private class DownloadKmlFile extends AsyncTask<Uri, Void, InputStream> {
+        private final String mScheme;
+
+        public DownloadKmlFile(String scheme) {
+            mScheme = scheme;
+        }
+
+        @Override
+        protected InputStream doInBackground(Uri... params) {
+            try {
+                InputStream stream = null;
+                if (mScheme.equals("file")) {
+                    stream = getContentResolver().openInputStream(params[0]);
+                } else if (mScheme.startsWith("http")) {
+                    stream = new URL(params[0].toString()).openStream();
+                }
+                assert stream != null;
+                return stream;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(InputStream inputStream) {
+            try {
+                // TODO: change layer to accept a Reader
+                KmlLayer layer = new KmlLayer(mMap, inputStream);
+                layer.addKmlData();
+            } catch (XmlPullParserException | IOException e) {
+                e.printStackTrace();
+            }
+
         }
     }
 }
