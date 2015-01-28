@@ -1,12 +1,21 @@
 package com.example.juliawong.geojsonintents;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.v4.app.FragmentActivity;
+import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.EditText;
+import android.widget.ProgressBar;
 
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
@@ -22,18 +31,61 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
 
-public class MapsActivity extends FragmentActivity {
+public class MapsActivity extends ActionBarActivity {
 
     private GoogleMap mMap; // Might be null if Google Play services APK is not available.
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // TODO: read data from the bundle
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
         setUpMapIfNeeded();
         Intent intent = getIntent();
         if (Intent.ACTION_VIEW.equals(intent.getAction())) {
             new DownloadGeoJsonFile(intent.getScheme()).execute(intent.getData());
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_activity_actions, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.input_url) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            final LayoutInflater inflater = getLayoutInflater();
+            final View dialogView = inflater.inflate(R.layout.dialog_import_url, null);
+
+            builder.setTitle("Import GeoJSON from URL");
+            final EditText editText = new EditText(getApplicationContext());
+            //builder.setView(editText);
+            builder.setView(dialogView);
+            builder.setPositiveButton("Import", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    String value = ((EditText) dialogView.findViewById(R.id.importUrl)).getText().toString();
+                    Log.i("VALUE", value);
+                    if (value.startsWith("http") && (value.endsWith(".json") || value.endsWith(".geojson"))) {
+                        new DownloadGeoJsonFile("http").execute(Uri.parse(value));
+                    }
+                }
+            });
+
+            builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    // Cancel
+                }
+            });
+            builder.show();
+            return true;
+        } else {
+            return super.onOptionsItemSelected(item);
         }
     }
 
@@ -84,8 +136,16 @@ public class MapsActivity extends FragmentActivity {
     private class DownloadGeoJsonFile extends AsyncTask<Uri, Void, JSONObject> {
         private final String mScheme;
 
+        private final ProgressBar mProgressBar = (ProgressBar) findViewById(R.id.progress_bar);
+
         public DownloadGeoJsonFile(String scheme) {
             mScheme = scheme;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            mProgressBar.setVisibility(View.VISIBLE);
         }
 
         @Override
@@ -118,6 +178,7 @@ public class MapsActivity extends FragmentActivity {
 
         @Override
         protected void onPostExecute(JSONObject jsonObject) {
+            mProgressBar.setVisibility(View.GONE);
             Log.i("JSON", jsonObject.toString());
             GeoJsonLayer layer = new GeoJsonLayer(mMap, jsonObject);
             // Set style of polygons to have a blue fill

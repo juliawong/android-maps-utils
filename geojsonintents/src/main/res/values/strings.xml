@@ -3,5 +3,7 @@
 
     <string name="app_name">GeoJsonIntents</string>
     <string name="title_activity_maps">GeoJSON Viewer</string>
+    <string name="input_url">Input URL</string>
+    <string name="importurl">URL of GeoJSON file</string>
 
 </resources>
