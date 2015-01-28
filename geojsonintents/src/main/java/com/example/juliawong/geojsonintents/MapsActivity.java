@@ -15,7 +15,6 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.ProgressBar;
 
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
@@ -136,8 +135,6 @@ public class MapsActivity extends ActionBarActivity {
     private class DownloadGeoJsonFile extends AsyncTask<Uri, Void, JSONObject> {
         private final String mScheme;
 
-        private final ProgressBar mProgressBar = (ProgressBar) findViewById(R.id.progress_bar);
-
         public DownloadGeoJsonFile(String scheme) {
             mScheme = scheme;
         }
@@ -145,7 +142,6 @@ public class MapsActivity extends ActionBarActivity {
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-            mProgressBar.setVisibility(View.VISIBLE);
         }
 
         @Override
@@ -178,7 +174,6 @@ public class MapsActivity extends ActionBarActivity {
 
         @Override
         protected void onPostExecute(JSONObject jsonObject) {
-            mProgressBar.setVisibility(View.GONE);
             Log.i("JSON", jsonObject.toString());
             GeoJsonLayer layer = new GeoJsonLayer(mMap, jsonObject);
             // Set style of polygons to have a blue fill
