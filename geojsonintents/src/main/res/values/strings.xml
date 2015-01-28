@@ -2,8 +2,8 @@
 <resources>
 
     <string name="app_name">GeoJsonIntents</string>
-    <string name="title_activity_maps">GeoJSON Viewer</string>
+    <string name="title_activity_maps">GeoJSON and KML Data Viewer</string>
     <string name="input_url">Input URL</string>
-    <string name="importurl">URL of GeoJSON file</string>
+    <string name="importurl">URL of file</string>
 
 </resources>
