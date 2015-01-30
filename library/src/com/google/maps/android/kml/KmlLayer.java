@@ -8,6 +8,7 @@ import org.xmlpull.v1.XmlPullParserFactory;
 
 import android.content.Context;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -50,6 +51,16 @@ public class KmlLayer {
                 parser.getFolders(), parser.getGroundOverlays());
     }
 
+    public KmlLayer(GoogleMap map, BufferedReader reader)
+            throws IOException, XmlPullParserException {
+        mRenderer = new KmlRenderer(map);
+        mParser = createXmlParser(reader);
+        KmlParser parser = new KmlParser(mParser);
+        parser.parseKml();
+        mRenderer.storeKmlData(parser.getStyles(), parser.getStyleMaps(), parser.getPlacemarks(),
+                parser.getFolders(), parser.getGroundOverlays());
+    }
+
     /**
      * Creates a new XmlPullParser to allow for the KML file to be parsed
      *
@@ -62,6 +73,14 @@ public class KmlLayer {
         factory.setNamespaceAware(true);
         XmlPullParser parser = factory.newPullParser();
         parser.setInput(stream, null);
+        return parser;
+    }
+
+    private static XmlPullParser createXmlParser(BufferedReader reader) throws XmlPullParserException {
+        XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
+        factory.setNamespaceAware(true);
+        XmlPullParser parser = factory.newPullParser();
+        parser.setInput(reader);
         return parser;
     }
 
