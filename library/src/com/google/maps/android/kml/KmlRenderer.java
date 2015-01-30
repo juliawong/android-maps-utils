@@ -25,17 +25,15 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Random;
 import java.util.Set;
 
 /**
  * Renders KmlPlacemark, KmlContainer and KmlGroundOverlay objects onto the GoogleMap as Marker,
- * Polyline, Polygon, GroundOverlay objects. Also
- * removes objects.
+ * Polyline, Polygon, GroundOverlay objects. Also removes objects from the map.
  */
 /* package */ class KmlRenderer {
-
-    private static final int RANDOM_COLOR_MODE = 1;
 
     private static final int LRU_CACHE_SIZE = 50;
 
@@ -57,6 +55,14 @@ import java.util.Set;
 
     private HashMap<KmlGroundOverlay, GroundOverlay> mGroundOverlays;
 
+    private HashMap<String, KmlStyle> mOriginalStyles;
+
+    private boolean mLayerVisible;
+
+    private boolean mMarkerIconsDownloaded;
+
+    private boolean mGroundOverlayImagesDownloaded;
+
     /**
      * Creates a new KmlRenderer object
      *
@@ -67,6 +73,9 @@ import java.util.Set;
         mImagesCache = new LruCache<String, Bitmap>(LRU_CACHE_SIZE);
         mMarkerIconUrls = new ArrayList<String>();
         mGroundOverlayUrls = new ArrayList<String>();
+        mLayerVisible = false;
+        mMarkerIconsDownloaded = false;
+        mGroundOverlayImagesDownloaded = false;
     }
 
     /**
@@ -76,7 +85,8 @@ import java.util.Set;
      * @param color Integer value representing a color
      * @return Integer representing a random color
      */
-    private static int computeRandomColor(int color) {
+    /* package */
+    static int computeRandomColor(int color) {
         Random random = new Random();
         int red = Color.red(color);
         int green = Color.green(color);
@@ -92,19 +102,6 @@ import java.util.Set;
             green = random.nextInt(green);
         }
         return Color.rgb(red, green, blue);
-    }
-
-    /**
-     * Iterates a list of styles and assigns a style
-     */
-    private static void assignStyleMap(HashMap<String, String> styleMap,
-            HashMap<String, KmlStyle> styles) {
-        for (String styleMapKey : styleMap.keySet()) {
-            String styleMapValue = styleMap.get(styleMapKey);
-            if (styles.containsKey(styleMapValue)) {
-                styles.put(styleMapKey, styles.get(styleMapValue));
-            }
-        }
     }
 
     /**
@@ -147,7 +144,7 @@ import java.util.Set;
      *
      * @param placemarks placemarks to remove
      */
-    private static void removeKmlPlacemarks(HashMap<KmlPlacemark, Object> placemarks) {
+    private static void removePlacemarks(HashMap<KmlPlacemark, Object> placemarks) {
         // Remove map object from the map
         for (Object mapObject : placemarks.values()) {
             if (mapObject instanceof Marker) {
@@ -158,8 +155,61 @@ import java.util.Set;
                 ((Polygon) mapObject).remove();
             }
         }
-        // Remove the KmlPlacemark and map object from the mPlacemarks hashmap
-        placemarks.clear();
+    }
+
+    /**
+     * Determines whether the container is visible, based on the visibility of the parent container
+     * and its own specified visibility
+     *
+     * @param kmlContainer             The kml container to retrieve visibility
+     * @param isParentContainerVisible Boolean value representing that parents visibility
+     * @return Visibility of the container
+     */
+
+    /*package*/
+    static Boolean getContainerVisibility(KmlContainer kmlContainer, Boolean
+            isParentContainerVisible) {
+        Boolean isChildContainerVisible = true;
+        if (kmlContainer.hasKmlProperty("visibility")) {
+            String placemarkVisibility = kmlContainer.getKmlProperty("visibility");
+            if (Integer.parseInt(placemarkVisibility) == 0) {
+                isChildContainerVisible = false;
+            }
+        }
+        return (isParentContainerVisible && isChildContainerVisible);
+    }
+
+    private void removeGroundOverlays(HashMap<KmlGroundOverlay, GroundOverlay> groundOverlays) {
+        for (GroundOverlay groundOverlay : groundOverlays.values()) {
+            if (groundOverlay != null) {
+                groundOverlay.remove();
+            }
+        }
+    }
+
+    /**
+     * Removes all the KML data from the map and clears all the stored placemarks of those which
+     * are in a container.
+     */
+    private void removeContainers(Iterable<KmlContainer> containers) {
+        for (KmlContainer container : containers) {
+            removePlacemarks(container.getPlacemarks());
+            removeGroundOverlays(container.getGroundOverlayHashMap());
+            removeContainers(container.getNestedKmlContainers());
+        }
+    }
+
+    /**
+     * Iterates a list of styles and assigns a style
+     */
+    /*package*/ void assignStyleMap(HashMap<String, String> styleMap,
+            HashMap<String, KmlStyle> styles) {
+        for (String styleMapKey : styleMap.keySet()) {
+            String styleMapValue = styleMap.get(styleMapKey);
+            if (styles.containsKey(styleMapValue)) {
+                styles.put(styleMapKey, styles.get(styleMapValue));
+            }
+        }
     }
 
     /**
@@ -171,7 +221,7 @@ import java.util.Set;
      * @param folders        array of containers
      * @param groundOverlays hashmap of ground overlays
      */
-    /* package */ void addKmlData(HashMap<String, KmlStyle> styles,
+    /* package */ void storeKmlData(HashMap<String, KmlStyle> styles,
             HashMap<String, String> styleMaps,
             HashMap<KmlPlacemark, Object> placemarks, ArrayList<KmlContainer> folders,
             HashMap<KmlGroundOverlay, GroundOverlay> groundOverlays) {
@@ -180,12 +230,23 @@ import java.util.Set;
         mPlacemarks = placemarks;
         mContainers = folders;
         mGroundOverlays = groundOverlays;
+        // Need to keep an original copy of the styles in case we override
+        mOriginalStyles = styles;
+    }
+
+    /* package */ void addKmlData() {
+        mStyles = mOriginalStyles;
         assignStyleMap(mStyleMaps, mStyles);
         addGroundOverlays(mGroundOverlays, mContainers);
-        downloadGroundOverlays();
         addContainerGroupToMap(mContainers, true);
         addPlacemarksToMap(mPlacemarks);
-        downloadMarkerIcons();
+        if (!mGroundOverlayImagesDownloaded) {
+            downloadGroundOverlays();
+        }
+        if (!mMarkerIconsDownloaded) {
+            downloadMarkerIcons();
+        }
+        mLayerVisible = true;
     }
 
     /**
@@ -203,8 +264,10 @@ import java.util.Set;
      * @param map map to place placemark, container, style and ground overlays on
      */
     /* package */ void setMap(GoogleMap map) {
-        // TODO: implement this
+        removeKmlData();
         mMap = map;
+        mStyles = mOriginalStyles;
+        addKmlData();
     }
 
     /**
@@ -256,10 +319,12 @@ import java.util.Set;
      * Removes all the KML data from the map and clears all the stored placemarks
      */
     /* package */ void removeKmlData() {
-        removeKmlPlacemarks(mPlacemarks);
+        removePlacemarks(mPlacemarks);
+        removeGroundOverlays(mGroundOverlays);
         if (hasNestedContainers()) {
             removeContainers(getNestedContainers());
         }
+        mLayerVisible = false;
     }
 
     /**
@@ -298,8 +363,7 @@ import java.util.Set;
      */
     private void addContainerGroupToMap(Iterable<KmlContainer> kmlContainers,
             boolean containerVisibility) {
-        for (KmlContainer containerInterface : kmlContainers) {
-            KmlContainer container = containerInterface;
+        for (KmlContainer container : kmlContainers) {
             Boolean isContainerVisible = getContainerVisibility(container, containerVisibility);
             if (container.getStyles() != null) {
                 // Stores all found styles from the container
@@ -333,27 +397,6 @@ import java.util.Set;
     }
 
     /**
-     * Determines whether the container is visible, based on the visibility of the parent container
-     * and its own specified visibility
-     *
-     * @param kmlContainer             The kml container to retrieve visibility
-     * @param isParentContainerVisible Boolean value representing that parents visibility
-     * @return Visibility of the container
-     */
-
-    private Boolean getContainerVisibility(KmlContainer kmlContainer, Boolean
-            isParentContainerVisible) {
-        Boolean isChildContainerVisible = true;
-        if (kmlContainer.hasKmlProperty("visibility")) {
-            String placemarkVisibility = kmlContainer.getKmlProperty("visibility");
-            if (Integer.parseInt(placemarkVisibility) == 0) {
-                isChildContainerVisible = false;
-            }
-        }
-        return (isParentContainerVisible && isChildContainerVisible);
-    }
-
-    /**
      * Obtains the styleUrl from a placemark and finds the corresponding style in a list
      *
      * @param styleId StyleUrl from a placemark
@@ -370,16 +413,16 @@ import java.util.Set;
     /**
      * Sets the marker icon if there was a url that was found
      *
-     * @param style  The style which we retrieve the icon url from
-     * @param marker The marker which is displaying the icon
+     * @param styleUrl      The style which we retrieve the icon url from
+     * @param markerOptions The marker which is displaying the icon
      */
-    private void addMarkerIcons(KmlStyle style, Marker marker) {
-        if (mImagesCache.get(style.getIconUrl()) != null) {
+    private void addMarkerIcons(String styleUrl, MarkerOptions markerOptions) {
+        if (mImagesCache.get(styleUrl) != null) {
             // Bitmap stored in cache
-            Bitmap bitmap = mImagesCache.get(style.getIconUrl());
-            marker.setIcon(BitmapDescriptorFactory.fromBitmap(bitmap));
-        } else if (!mMarkerIconUrls.contains(style.getIconUrl())) {
-            mMarkerIconUrls.add(style.getIconUrl());
+            Bitmap bitmap = mImagesCache.get(styleUrl);
+            markerOptions.icon(BitmapDescriptorFactory.fromBitmap(bitmap));
+        } else if (!mMarkerIconUrls.contains(styleUrl)) {
+            mMarkerIconUrls.add(styleUrl);
         }
     }
 
@@ -387,10 +430,12 @@ import java.util.Set;
      * Determines if there are any icons to add to markers
      */
     private void downloadMarkerIcons() {
-        for (String markerIconUrl : mMarkerIconUrls) {
-            new IconImageDownload(markerIconUrl).execute();
+        mMarkerIconsDownloaded = true;
+        for (Iterator<String> iterator = mMarkerIconUrls.iterator(); iterator.hasNext(); ) {
+            String markerIconUrl = iterator.next();
+            new MarkerIconImageDownload(markerIconUrl).execute();
+            iterator.remove();
         }
-        mMarkerIconUrls.clear();
     }
 
     /**
@@ -401,13 +446,22 @@ import java.util.Set;
     private void addIconToMarkers(String iconUrl, HashMap<KmlPlacemark, Object> mPlacemarks) {
         for (KmlPlacemark placemark : mPlacemarks.keySet()) {
             KmlStyle placemarkStyle = mStyles.get(placemark.getStyleID());
-            // Check if the style URL is the same and the type of geometry is a point
-            if (placemarkStyle != null && iconUrl.equals(placemarkStyle.getIconUrl())
-                    && "Point".equals(placemark.getGeometry().getKmlGeometryType())) {
-                Bitmap iconBitmap = mImagesCache.get(iconUrl);
-                Double scale = placemarkStyle.getIconScale();
-                ((Marker) mPlacemarks.get(placemark))
-                        .setIcon(scaleIconToMarkers(iconBitmap, scale));
+            if ("Point".equals(placemark.getGeometry().getKmlGeometryType())) {
+                boolean isInlineStyleIcon = placemark.getInlineStyle() != null && iconUrl
+                        .equals(placemark.getInlineStyle().getIconUrl());
+                boolean isPlacemarkStyleIcon = placemarkStyle != null && iconUrl
+                        .equals(placemarkStyle.getIconUrl());
+                if (isInlineStyleIcon) {
+                    Bitmap iconBitmap = mImagesCache.get(iconUrl);
+                    Double scale = placemark.getInlineStyle().getIconScale();
+                    ((Marker) mPlacemarks.get(placemark)).setIcon(
+                            scaleIconToMarkers(iconBitmap, scale));
+                } else if (isPlacemarkStyleIcon) {
+                    Bitmap iconBitmap = mImagesCache.get(iconUrl);
+                    Double scale = placemarkStyle.getIconScale();
+                    ((Marker) mPlacemarks.get(placemark)).setIcon(
+                            scaleIconToMarkers(iconBitmap, scale));
+                }
             }
         }
     }
@@ -421,10 +475,9 @@ import java.util.Set;
     private void addContainerGroupIconsToMarkers(String iconUrl,
             Iterable<KmlContainer> kmlContainers) {
         for (KmlContainer container : kmlContainers) {
-            KmlContainer containerObject = container;
-            addIconToMarkers(iconUrl, containerObject.getPlacemarks());
-            if (containerObject.hasNestedKmlContainers()) {
-                addContainerGroupIconsToMarkers(iconUrl, containerObject.getNestedKmlContainers());
+            addIconToMarkers(iconUrl, container.getPlacemarks());
+            if (container.hasNestedKmlContainers()) {
+                addContainerGroupIconsToMarkers(iconUrl, container.getNestedKmlContainers());
             }
         }
     }
@@ -513,26 +566,16 @@ import java.util.Set;
      * @param style contains relevant styling properties for the Marker
      * @return Marker object
      */
-    private Marker addPointToMap(KmlPoint point, KmlStyle style, KmlStyle inlineStyle) {
-        MarkerOptions markerOptions = style.getMarkerOptions();
-        markerOptions.position(point.getKmlGeometryObject());
-
-        if (inlineStyle != null) {
-            // TODO: icon scale, icon URL
-            MarkerOptions inlineMarkerOptions = inlineStyle.getMarkerOptions();
-            if (inlineStyle.isStyleSet("heading")) {
-                markerOptions.rotation(inlineMarkerOptions.getRotation());
-            }
-            if (inlineStyle.isStyleSet("hotSpot")) {
-                markerOptions
-                        .anchor(inlineMarkerOptions.getAnchorU(), inlineMarkerOptions.getAnchorV());
-            }
-            if (inlineStyle.isStyleSet("markerColor")) {
-                markerOptions.icon(inlineMarkerOptions.getIcon());
-            }
+    private Marker addPointToMap(KmlPoint point, KmlStyle style, KmlStyle markerInlineStyle) {
+        MarkerOptions markerUrlStyle = style.getMarkerOptions();
+        markerUrlStyle.position(point.getKmlGeometryObject());
+        if (markerInlineStyle != null) {
+            setInlinePointStyle(markerUrlStyle, markerInlineStyle, style.getIconUrl());
+        } else if (style.getIconUrl() != null) {
+            // Use shared style
+            addMarkerIcons(style.getIconUrl(), markerUrlStyle);
         }
-
-        Marker marker = mMap.addMarker(markerOptions);
+        Marker marker = mMap.addMarker(markerUrlStyle);
         // If there exists style options for a balloonStyle
         if (style.getBalloonOptions().size() > 0) {
             // Set info window if balloonStyle is set
@@ -540,11 +583,28 @@ import java.util.Set;
             setContainerMarkerInfoWindow(style, marker, mContainers);
         }
 
-        if (style.getIconUrl() != null) {
-            // Sets an icon image if there is a url for it
-            addMarkerIcons(style, marker);
-        }
         return marker;
+    }
+
+    private void setInlinePointStyle(MarkerOptions markerUrlStyle, KmlStyle inlineStyle,
+            String markerUrlIconUrl) {
+        MarkerOptions inlineMarkerOptions = inlineStyle.getMarkerOptions();
+        if (inlineStyle.isStyleSet("heading")) {
+            markerUrlStyle.rotation(inlineMarkerOptions.getRotation());
+        }
+        if (inlineStyle.isStyleSet("hotSpot")) {
+            markerUrlStyle
+                    .anchor(inlineMarkerOptions.getAnchorU(), inlineMarkerOptions.getAnchorV());
+        }
+        if (inlineStyle.isStyleSet("markerColor")) {
+            markerUrlStyle.icon(inlineMarkerOptions.getIcon());
+        }
+        if (inlineStyle.isStyleSet("iconUrl")) {
+            addMarkerIcons(inlineStyle.getIconUrl(), markerUrlStyle);
+        } else if (markerUrlIconUrl != null) {
+            // Inline style with no icon defined
+            addMarkerIcons(markerUrlIconUrl, markerUrlStyle);
+        }
     }
 
     /**
@@ -558,24 +618,25 @@ import java.util.Set;
             KmlStyle inlineStyle) {
         PolylineOptions polylineOptions = style.getPolylineOptions();
         polylineOptions.addAll(lineString.getKmlGeometryObject());
-
         if (inlineStyle != null) {
-            PolylineOptions inlinePolylineOptions = inlineStyle.getPolylineOptions();
-            if (inlineStyle.isStyleSet("outlineColor")) {
-                polylineOptions.color(inlinePolylineOptions.getColor());
-            }
-            if (inlineStyle.isStyleSet("width")) {
-                polylineOptions.width(inlinePolylineOptions.getWidth());
-            }
-            if (inlineStyle.isLineRandomColorMode()) {
-                polylineOptions.color(computeRandomColor(inlinePolylineOptions.getColor()));
-            }
-        } else {
-            if (style.isLineRandomColorMode()) {
-                polylineOptions.color(computeRandomColor(polylineOptions.getColor()));
-            }
+            setInlineLineStringStyle(polylineOptions, inlineStyle);
+        } else if (style.isLineRandomColorMode()) {
+            polylineOptions.color(computeRandomColor(polylineOptions.getColor()));
         }
         return mMap.addPolyline(polylineOptions);
+    }
+
+    private void setInlineLineStringStyle(PolylineOptions polylineOptions, KmlStyle inlineStyle) {
+        PolylineOptions inlinePolylineOptions = inlineStyle.getPolylineOptions();
+        if (inlineStyle.isStyleSet("outlineColor")) {
+            polylineOptions.color(inlinePolylineOptions.getColor());
+        }
+        if (inlineStyle.isStyleSet("width")) {
+            polylineOptions.width(inlinePolylineOptions.getWidth());
+        }
+        if (inlineStyle.isLineRandomColorMode()) {
+            polylineOptions.color(computeRandomColor(inlinePolylineOptions.getColor()));
+        }
     }
 
     /**
@@ -591,29 +652,30 @@ import java.util.Set;
         for (ArrayList<LatLng> innerBoundary : polygon.getInnerBoundaryCoordinates()) {
             polygonOptions.addHole(innerBoundary);
         }
-
         if (inlineStyle != null) {
-            PolygonOptions inlinePolygonOptions = inlineStyle.getPolygonOptions();
-            if (inlineStyle.hasFill() && inlineStyle.isStyleSet("fillColor")) {
-                polygonOptions.fillColor(inlinePolygonOptions.getFillColor());
-            }
-            if (inlineStyle.hasOutline()) {
-                if (inlineStyle.isStyleSet("outlineColor")) {
-                    polygonOptions.strokeColor(inlinePolygonOptions.getStrokeColor());
-                }
-                if (inlineStyle.isStyleSet("width")) {
-                    polygonOptions.strokeWidth(inlinePolygonOptions.getStrokeWidth());
-                }
-            }
-            if (inlineStyle.isPolyRandomColorMode()) {
-                polygonOptions.fillColor(computeRandomColor(inlinePolygonOptions.getFillColor()));
-            }
-        } else {
-            if (style.isPolyRandomColorMode()) {
-                polygonOptions.fillColor(computeRandomColor(polygonOptions.getFillColor()));
-            }
+            setInlinePolygonStyle(polygonOptions, inlineStyle);
+        } else if (style.isPolyRandomColorMode()) {
+            polygonOptions.fillColor(computeRandomColor(polygonOptions.getFillColor()));
         }
         return mMap.addPolygon(polygonOptions);
+    }
+
+    private void setInlinePolygonStyle(PolygonOptions polygonUrlStyle, KmlStyle inlineStyle) {
+        PolygonOptions inlinePolygonOptions = inlineStyle.getPolygonOptions();
+        if (inlineStyle.hasFill() && inlineStyle.isStyleSet("fillColor")) {
+            polygonUrlStyle.fillColor(inlinePolygonOptions.getFillColor());
+        }
+        if (inlineStyle.hasOutline()) {
+            if (inlineStyle.isStyleSet("outlineColor")) {
+                polygonUrlStyle.strokeColor(inlinePolygonOptions.getStrokeColor());
+            }
+            if (inlineStyle.isStyleSet("width")) {
+                polygonUrlStyle.strokeWidth(inlinePolygonOptions.getStrokeWidth());
+            }
+        }
+        if (inlineStyle.isPolyRandomColorMode()) {
+            polygonUrlStyle.fillColor(computeRandomColor(inlinePolygonOptions.getFillColor()));
+        }
     }
 
     /**
@@ -673,10 +735,12 @@ import java.util.Set;
      * Downloads images of all ground overlays
      */
     private void downloadGroundOverlays() {
-        for (String groundOverlayUrl : mGroundOverlayUrls) {
+        mGroundOverlayImagesDownloaded = true;
+        for (Iterator<String> iterator = mGroundOverlayUrls.iterator(); iterator.hasNext(); ) {
+            String groundOverlayUrl = iterator.next();
             new GroundOverlayImageDownload(groundOverlayUrl).execute();
+            iterator.remove();
         }
-        mGroundOverlayUrls.clear();
     }
 
     /**
@@ -716,24 +780,9 @@ import java.util.Set;
     }
 
     /**
-     * Removes all the KML data from the map and clears all the stored placemarks of those which
-     * are in a container.
-     */
-    private void removeContainers(Iterable<KmlContainer> containers) {
-        for (KmlContainer container : containers) {
-            if (container.hasKmlPlacemarks()) {
-                removeKmlPlacemarks(container.getPlacemarks());
-            }
-            if (container.hasNestedKmlContainers()) {
-                removeContainers(container.getNestedKmlContainers());
-            }
-        }
-    }
-
-    /**
      * Downloads images for use as marker icons
      */
-    private class IconImageDownload extends AsyncTask<String, Void, Bitmap> {
+    private class MarkerIconImageDownload extends AsyncTask<String, Void, Bitmap> {
 
         private final String mIconUrl;
 
@@ -742,7 +791,7 @@ import java.util.Set;
          *
          * @param iconUrl URL of the marker icon to download
          */
-        public IconImageDownload(String iconUrl) {
+        public MarkerIconImageDownload(String iconUrl) {
             mIconUrl = iconUrl;
         }
 
@@ -775,10 +824,11 @@ import java.util.Set;
                 throw new NullPointerException("Image not found!");
             }
             mImagesCache.put(mIconUrl, bitmap);
-            addIconToMarkers(mIconUrl, mPlacemarks);
-            addContainerGroupIconsToMarkers(mIconUrl, mContainers);
+            if (mLayerVisible) {
+                addIconToMarkers(mIconUrl, mPlacemarks);
+                addContainerGroupIconsToMarkers(mIconUrl, mContainers);
+            }
         }
-
     }
 
     /**
@@ -788,7 +838,7 @@ import java.util.Set;
 
         private final String mGroundOverlayUrl;
 
-        private GroundOverlayImageDownload(String groundOverlayUrl) {
+        public GroundOverlayImageDownload(String groundOverlayUrl) {
             mGroundOverlayUrl = groundOverlayUrl;
         }
 
@@ -821,10 +871,11 @@ import java.util.Set;
             if (bitmap == null) {
                 throw new NullPointerException("Image not found!");
             }
-            mImagesCache.put(mGroundOverlayUrl, bitmap);
-            addGroundOverlayToMap(mGroundOverlayUrl, mGroundOverlays);
-            addGroundOverlayInContainerGroups(mGroundOverlayUrl, mContainers);
+            if (mLayerVisible) {
+                mImagesCache.put(mGroundOverlayUrl, bitmap);
+                addGroundOverlayToMap(mGroundOverlayUrl, mGroundOverlays);
+                addGroundOverlayInContainerGroups(mGroundOverlayUrl, mContainers);
+            }
         }
-
     }
 }

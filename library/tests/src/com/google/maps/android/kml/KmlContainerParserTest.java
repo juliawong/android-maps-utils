@@ -2,14 +2,10 @@ package com.google.maps.android.kml;
 
 import android.test.ActivityTestCase;
 
-import junit.framework.TestCase;
-
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
 
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.util.ArrayList;
 
 import com.google.maps.android.test.R;
 
@@ -28,10 +24,17 @@ public class KmlContainerParserTest extends ActivityTestCase {
         return parser;
     }
 
+    public void testCDataEntity() throws Exception {
+        KmlContainerParser parser = new KmlContainerParser(createParser(R.raw.cdata));
+        KmlContainer kmlContainer = new KmlContainer();
+        parser.assignContainerProperties(kmlContainer);
+        assertEquals(kmlContainer.getKmlProperty("description"), "TELEPORT");
+    }
+
     public void testCreateContainerProperty() throws Exception {
         KmlContainerParser parser = new KmlContainerParser(createParser(R.raw.basic_folder));
         KmlContainer kmlContainer = new KmlContainer();
-        parser.assignFolderProperties(kmlContainer);
+        parser.assignContainerProperties(kmlContainer);
         assertTrue(kmlContainer.hasKmlProperties());
         assertEquals(kmlContainer.getKmlProperty("name"), "Basic Folder");
     }
@@ -39,28 +42,27 @@ public class KmlContainerParserTest extends ActivityTestCase {
     public void testCreateContainerPlacemark() throws Exception {
         KmlContainerParser parser = new KmlContainerParser(createParser(R.raw.basic_folder));
         KmlContainer kmlContainer = new KmlContainer();
-        parser.assignFolderProperties(kmlContainer);
+        parser.assignContainerProperties(kmlContainer);
         assertTrue(kmlContainer.hasKmlPlacemarks());
         assertEquals(kmlContainer.getPlacemarks().size(), 1);
         parser = new KmlContainerParser(createParser(R.raw.multiple_placemarks));
         kmlContainer = new KmlContainer();
-        parser.assignFolderProperties(kmlContainer);
+        parser.assignContainerProperties(kmlContainer);
         assertTrue(kmlContainer.hasKmlPlacemarks());
         assertEquals(kmlContainer.getPlacemarks().size(), 2);
-
     }
 
     public void testCreateContainerGroundOverlay() throws Exception {
-        KmlContainerParser parser = new KmlContainerParser(createParser(R.raw.basic_folder));
+        KmlContainerParser parser = new KmlContainerParser(createParser(R.raw.ground_overlay));
         KmlContainer kmlContainer = new KmlContainer();
-        parser.assignFolderProperties(kmlContainer);
-        //TODO: Test for Ground Overlay
+        parser.assignContainerProperties(kmlContainer);
+        assertEquals(kmlContainer.getGroundOverlayHashMap().size(), 2);
     }
 
     public void testCreateContainerObjects() throws Exception {
         KmlContainerParser parser = new KmlContainerParser(createParser(R.raw.nested_folders));
         KmlContainer kmlContainer = new KmlContainer();
-        parser.assignFolderProperties(kmlContainer);
+        parser.assignContainerProperties(kmlContainer);
         assertNotNull(kmlContainer.getNestedKmlContainers());
         int numberOfNestedContainers = 0;
         for (KmlContainer container : kmlContainer.getNestedKmlContainers()) {

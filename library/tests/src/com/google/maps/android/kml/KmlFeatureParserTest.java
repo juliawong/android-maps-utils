@@ -46,7 +46,7 @@ public class KmlFeatureParserTest extends ActivityTestCase {
 
     public void testProperties() throws Exception {
         KmlFeatureParser parser = new KmlFeatureParser(createParser(R.raw.multigeometry_placemarks));
-        parser.createPlacemark();s
+        parser.createPlacemark();
         assertTrue(parser.getPlacemark().hasProperties());
         assertEquals(parser.getPlacemark().getProperty("name"), "Placemark Test");
         assertNull(parser.getPlacemark().getProperty("description"));
@@ -56,6 +56,22 @@ public class KmlFeatureParserTest extends ActivityTestCase {
         KmlFeatureParser parser = new KmlFeatureParser(createParser(R.raw.multiple_placemarks));
         parser.createPlacemark();
         assertNotNull(parser.getPlacemark().getProperty("holeNumber"));
+    }
+
+    public void testGroundOverlay() throws Exception {
+        KmlFeatureParser parser = new KmlFeatureParser(createParser(R.raw.ground_overlay));
+        parser.createGroundOverlay();
+        KmlGroundOverlay groundOverlay = parser.getGroundOverlay();
+        assertNotNull(groundOverlay);
+        assertEquals(groundOverlay.getProperty("name"), "Sample Ground Overlay");
+        assertNotNull(groundOverlay.getImageUrl());
+        assertEquals(groundOverlay.getGroundOverlayOptions().getZIndex(), 99.0f);
+        assertTrue(groundOverlay.getGroundOverlayOptions().isVisible());
+        assertNotNull(groundOverlay.getLatLngBox());
+        parser = new KmlFeatureParser(createParser(R.raw.ground_overlay_color));
+        parser.createGroundOverlay();
+        groundOverlay = parser.getGroundOverlay();
+        assertNotNull(groundOverlay);
     }
 
 
