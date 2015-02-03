@@ -12,6 +12,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.HashMap;
 
 
 /**
@@ -21,8 +22,6 @@ import java.io.InputStreamReader;
 public class GeoJsonLayer {
 
     private final GeoJsonRenderer mRenderer;
-
-    private final GeoJsonParser mParser;
 
     private GeoJsonPointStyle mDefaultPointStyle;
 
@@ -43,10 +42,14 @@ public class GeoJsonLayer {
         mDefaultLineStringStyle = new GeoJsonLineStringStyle();
         mDefaultPolygonStyle = new GeoJsonPolygonStyle();
         mBoundingBox = null;
-        mRenderer = new GeoJsonRenderer(map);
-        mParser = new GeoJsonParser(geoJsonFile);
+        GeoJsonParser parser = new GeoJsonParser(geoJsonFile);
         // Assign GeoJSON bounding box for FeatureCollection
-        mBoundingBox = mParser.getBoundingBox();
+        mBoundingBox = parser.getBoundingBox();
+        HashMap<GeoJsonFeature, Object> geoJsonFeatures = new HashMap<GeoJsonFeature, Object>();
+        for (GeoJsonFeature feature : parser.getFeatures()) {
+            geoJsonFeatures.put(feature, null);
+        }
+        mRenderer = new GeoJsonRenderer(map, geoJsonFeatures);
     }
 
     /**
@@ -90,9 +93,9 @@ public class GeoJsonLayer {
     }
 
     /**
-     * Gets a set of all GeoJsonFeature elements stored
+     * Gets an iterable of all GeoJsonFeature elements that appear on the map
      *
-     * @return set of GeoJsonFeature elements
+     * @return iterable of GeoJsonFeature elements
      */
     public Iterable<GeoJsonFeature> getFeatures() {
         return mRenderer.getFeatures();
@@ -114,10 +117,11 @@ public class GeoJsonLayer {
     }
 
     /**
-     * Adds all the GeoJsonFeature objects parsed from the GeoJSON document onto the map
+     * Adds all the GeoJsonFeature objects parsed from the GeoJSON document onto the map. Default
+     * styles are applied to all features each time this method is called.
      */
-    public void addGeoJsonDataToLayer() {
-        for (GeoJsonFeature feature : mParser.getFeatures()) {
+    public void addDataToLayer() {
+        for (GeoJsonFeature feature : mRenderer.getFeatures()) {
             addFeature(feature);
         }
     }
@@ -167,7 +171,7 @@ public class GeoJsonLayer {
      * Removes all of the stored GeoJsonFeature objects from the map and clears the mFeatures
      * hashmap
      */
-    public void removeGeoJsonLayer() {
+    public void removeLayer() {
         mRenderer.removeLayerFromMap();
     }
 

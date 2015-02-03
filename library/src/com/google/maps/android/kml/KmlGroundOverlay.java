@@ -1,20 +1,17 @@
 package com.google.maps.android.kml;
 
-import android.graphics.Color;
-
-import com.google.android.gms.maps.model.BitmapDescriptor;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.GroundOverlayOptions;
 import com.google.android.gms.maps.model.LatLngBounds;
 
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Represents a KML Ground Overlay
  */
 public class KmlGroundOverlay {
 
-    private final HashMap<String, String> mProperties;
+    private final Map<String, String> mProperties;
 
     private final GroundOverlayOptions mGroundOverlayOptions;
 
@@ -22,87 +19,84 @@ public class KmlGroundOverlay {
 
     private LatLngBounds mLatLngBox;
 
-    private final static int HSV_VALUES = 3;
-
-    private final static int HUE_VALUE = 0;
-
-    private String mGroundOverlayColor;
-
-
-    public KmlGroundOverlay() {
-        mImageUrl = null;
-        mLatLngBox = null;
-        mGroundOverlayColor = null;
-        mProperties = new HashMap<String, String>();
+    /**
+     * Creates a new Ground Overlay
+     *
+     * @param imageUrl   url of the ground overlay image
+     * @param latLonBox  bounds of the image
+     * @param drawOrder  z index of the image
+     * @param visibility true if visible, false otherwise
+     * @param properties properties hashmap
+     * @param rotation   rotation of image
+     */
+    /* package */ KmlGroundOverlay(String imageUrl, LatLngBounds latLonBox, float drawOrder,
+            int visibility, HashMap<String, String> properties, float rotation) {
         mGroundOverlayOptions = new GroundOverlayOptions();
+        mImageUrl = imageUrl;
+        mProperties = properties;
+        if (latLonBox == null) {
+            throw new IllegalArgumentException("No LatLonBox given");
+        }
+        mLatLngBox = latLonBox;
+        mGroundOverlayOptions.positionFromBounds(latLonBox);
+        mGroundOverlayOptions.bearing(rotation);
+        mGroundOverlayOptions.zIndex(drawOrder);
+        mGroundOverlayOptions.visible(visibility != 0);
     }
 
-    public void setColor(String stringColor) {
-        mGroundOverlayColor = stringColor;
-    }
-
-    public String getColor() {
-        return mGroundOverlayColor;
-    }
-
+    /**
+     * Gets the image url of the image used for the ground overlay
+     *
+     * @return Image url of the ground overlay
+     */
     public String getImageUrl() {
         return mImageUrl;
     }
 
-    /* package */ void setImageUrl(String imageUrl) {
-        mImageUrl = imageUrl;
-    }
-
+    /**
+     * Returns a latlngbounds representing the outer boundaries of the ground overlay
+     *
+     * @return latlngbound representing the outer boundary of the ground overlay
+     */
     public LatLngBounds getLatLngBox() {
         return mLatLngBox;
     }
 
-    /* package */ void setLatLngBox(LatLngBounds latLngBox) {
-        mLatLngBox = latLngBox;
-        mGroundOverlayOptions.positionFromBounds(latLngBox);
-    }
-
-    public void setProperty(String propertyName, String propertyValue) {
-        mProperties.put(propertyName, propertyValue);
-    }
-
+    /**
+     * Gets an iterable of the properties
+     *
+     * @return Iterable of the properties of the ground overlay
+     */
     public Iterable getProperties() {
         return mProperties.entrySet();
     }
 
-    /* package */ void setProperties(HashMap<String, String> properties) {
-        mProperties.putAll(properties);
-    }
-
+    /**
+     * Gets a property value based on key
+     *
+     * @param keyValue key value of the property
+     * @return Value of property
+     */
     public String getProperty(String keyValue) {
         return mProperties.get(keyValue);
     }
 
+    /**
+     * Returns a boolean value determining whether the ground overlay has a property
+     *
+     * @param keyValue Value to retrieve
+     * @return True if the property exists, false otherwise
+     */
     public boolean hasProperty(String keyValue) {
         return mProperties.get(keyValue) != null;
     }
 
-    public void setDrawOrder(float zIndex) {
-        mGroundOverlayOptions.zIndex(zIndex);
-    }
-
-    public void setVisibility(int visibility) {
-        if (visibility == 0) {
-            mGroundOverlayOptions.visible(false);
-        }
-    }
-
-    public void setRotation(float rotation) {
-        if (rotation > 0.0 && rotation <= 180.0) {
-            mGroundOverlayOptions.bearing(rotation + 180);
-        } else if (rotation < 0.0 && rotation >= -180.0) {
-            mGroundOverlayOptions.bearing(Math.abs(rotation));
-        } else {
-            mGroundOverlayOptions.bearing(rotation);
-        }
-    }
-
-    public GroundOverlayOptions getGroundOverlayOptions() {
+    /**
+     * Gets the ground overlay option of the ground overlay on the map
+     *
+     * @return GroundOverlayOptions
+     */
+    /* package */ GroundOverlayOptions getGroundOverlayOptions() {
         return mGroundOverlayOptions;
     }
 

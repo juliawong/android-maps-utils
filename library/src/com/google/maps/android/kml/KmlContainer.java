@@ -22,13 +22,62 @@ public class KmlContainer {
 
     private HashMap<String, KmlStyle> mStyles;
 
-    public KmlContainer() {
-        mProperties = new HashMap<String, String>();
-        mPlacemarks = new HashMap<KmlPlacemark, Object>();
-        mStyles = new HashMap<String, KmlStyle>();
-        mStyleMap = new HashMap<String, String>();
-        mContainers = new ArrayList<KmlContainer>();
-        mGroundOverlays = new HashMap<KmlGroundOverlay, GroundOverlay>();
+    private String mContainerId;
+
+    public KmlContainer(HashMap<String, String> properties, HashMap<String, KmlStyle> styles,
+            HashMap<KmlPlacemark, Object> placemarks, HashMap<String, String> styleMaps,
+            ArrayList<KmlContainer> containers, HashMap<KmlGroundOverlay, GroundOverlay>
+            groundOverlay, String Id) {
+        mProperties = properties;
+        mPlacemarks = placemarks;
+        mStyles = styles;
+        mStyleMap = styleMaps;
+        mContainers = containers;
+        mGroundOverlays = groundOverlay;
+        mContainerId = Id;
+    }
+
+    /**
+     * @return HashMap of styles, with key values representing style name (ie, color) and
+     * value representing style value (ie #FFFFFF)
+     */
+    /* package */ HashMap<String, KmlStyle> getStyles() {
+        return mStyles;
+    }
+
+    /**
+     * @param placemarks Placemark for the container to contain
+     * @param object     Corresponding GoogleMap map object of the basic_placemark (if it has been
+     *                   added
+     *                   to the map)
+     */
+    /* package */ void setPlacemark(KmlPlacemark placemarks, Object object) {
+        mPlacemarks.put(placemarks, object);
+    }
+
+    /**
+     * @return A map of strings representing a style map, null if no style maps exist
+     */
+    /* package */ HashMap<String, String> getStyleMap() {
+        return mStyleMap;
+    }
+
+    /**
+     * Gets all of the ground overlays which were set in the container
+     *
+     * @return A set of ground overlays
+     */
+    /* package */ HashMap<KmlGroundOverlay, GroundOverlay> getGroundOverlayHashMap() {
+        return mGroundOverlays;
+    }
+
+    /**
+     * Gets the Container ID if it is specified
+     *
+     * @return Container ID or null if not set
+     */
+    public String getContainerId() {
+        return mContainerId;
     }
 
     /*package*/ ArrayList<KmlContainer> getNestedContainers() {
@@ -43,91 +92,10 @@ public class KmlContainer {
     }
 
     /**
-     * @return HashMap of styles, with key values representing style name (ie, color) and
-     * value representing style value (ie #FFFFFF)
-     */
-    /* package */ HashMap<String, KmlStyle> getStyles() {
-        return mStyles;
-    }
-
-    /**
-     * Takes an ArrayList of styles and assigns these folders with the styles
-     */
-    /* package */ void setStyles(HashMap<String, KmlStyle> styles) {
-        mStyles = styles;
-    }
-
-    /**
-     * @param placemarks Placemark for the container to contain
-     * @param object     Corresponding GoogleMap map object of the basic_placemark (if it has been
-     *                   added
-     *                   to the map)
-     */
-    /* package */ void setPlacemark(KmlPlacemark placemarks, Object object) {
-        mPlacemarks.put(placemarks, object);
-    }
-
-    /**
-     * Add a nested container
-     *
-     * @param container Container to nest within the current instance of the container
-     */
-    /* package */ void addChildContainer(KmlContainer container) {
-        mContainers.add(container);
-    }
-
-    /**
      * @return HashMap of containers
      */
     public HashMap<KmlPlacemark, Object> getPlacemarks() {
         return mPlacemarks;
-    }
-
-    /**
-     * Sets a property to be contained by the container
-     *
-     * @param propertyName  Name of the property, ie "name"
-     * @param propertyValue Value of the property, ie "Arizona"
-     */
-    public void setProperty(String propertyName, String propertyValue) {
-        mProperties.put(propertyName, propertyValue);
-    }
-
-    /**
-     * Sets a style to be contained by the container
-     *
-     * @param styleId Name or ID of the style
-     * @param style   KmlStyle object
-     */
-    public void setStyle(String styleId, KmlStyle style) {
-        mStyles.put(styleId, style);
-    }
-
-    /**
-     * @return A map of strings representing a style map, null if no style maps exist
-     */
-    /* package */ HashMap<String, String> getStyleMap() {
-        return mStyleMap;
-    }
-
-    /**
-     * @param styleMap Adds a map of strings representing a style map
-     */
-    /* package */ void setStyleMap(HashMap<String, String> styleMap) {
-        mStyleMap.putAll(styleMap);
-    }
-
-    /**
-     * Add a ground overlay for this container
-     *
-     * @param groundOverlay ground overlay to add
-     */
-    /* package */ void addGroundOverlay(KmlGroundOverlay groundOverlay) {
-        mGroundOverlays.put(groundOverlay, null);
-    }
-
-    /* package */ HashMap<KmlGroundOverlay, GroundOverlay> getGroundOverlayHashMap() {
-        return mGroundOverlays;
     }
 
     /**

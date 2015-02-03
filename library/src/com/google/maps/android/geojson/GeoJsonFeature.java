@@ -46,12 +46,53 @@ public class GeoJsonFeature extends Observable implements Observer {
     }
 
     /**
-     * Gets the hashmap of the properties
+     * Returns all the stored property keys
      *
-     * @return hashmap of properties
+     * @return iterable of property keys
      */
-    public HashMap<String, String> getProperties() {
-        return mProperties;
+    public Iterable<String> getPropertyKeys() {
+        return mProperties.keySet();
+    }
+
+    /**
+     * Get the value for a stored property
+     *
+     * @param property key of the property
+     * @return value of the property if its key exists, otherwise null
+     */
+    public String getProperty(String property) {
+        return mProperties.get(property);
+    }
+
+    /**
+     * Store a new property key and value
+     *
+     * @param property      key of the property to store
+     * @param propertyValue value of the property to store
+     * @return previous value with the same key, otherwise null if the key didn't exist
+     */
+    public String setProperty(String property, String propertyValue) {
+        return mProperties.put(property, propertyValue);
+    }
+
+    /**
+     * Checks whether the given property key exists
+     *
+     * @param property key of the property to check
+     * @return true if property key exists, false otherwise
+     */
+    public boolean hasProperty(String property) {
+        return mProperties.containsKey(property);
+    }
+
+    /**
+     * Removes a given property
+     *
+     * @param property key of the property to remove
+     * @return value of the removed property or null if there was no corresponding key
+     */
+    public String removeProperty(String property) {
+        return mProperties.remove(property);
     }
 
     /**
@@ -127,6 +168,7 @@ public class GeoJsonFeature extends Observable implements Observer {
     private void checkRedrawFeature(GeoJsonStyle style) {
         if (mGeoJsonGeometry != null && mGeoJsonGeometry.getType()
                 .matches(style.getGeometryType())) {
+            // Don't redraw objects that aren't on the map
             setChanged();
             notifyObservers();
         }

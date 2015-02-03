@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-
 /**
  * Parses a given KML file into KmlStyle, KmlPlacemark, KmlGroundOverlay and KmlContainer objects
  */
@@ -25,19 +24,15 @@ import java.util.HashMap;
 
     private final static String CONTAINER_REGEX = "Folder|Document";
 
-    private final KmlStyleParser styleParser;
-
-    private final KmlFeatureParser featureParser;
-
-    private final KmlContainerParser containerParser;
-
     private final XmlPullParser mParser;
 
     private final HashMap<KmlPlacemark, Object> mPlacemarks;
 
-    private final ArrayList<KmlContainer> mFolders;
+    private final ArrayList<KmlContainer> mContainers;
 
     private final HashMap<String, KmlStyle> mStyles;
+
+    private final HashMap<String, String> mStyleMaps;
 
     private final HashMap<KmlGroundOverlay, GroundOverlay> mGroundOverlays;
 
@@ -49,11 +44,9 @@ import java.util.HashMap;
     /* package */ KmlParser(XmlPullParser parser) {
         mParser = parser;
         mPlacemarks = new HashMap<KmlPlacemark, Object>();
-        mFolders = new ArrayList<KmlContainer>();
+        mContainers = new ArrayList<KmlContainer>();
         mStyles = new HashMap<String, KmlStyle>();
-        styleParser = new KmlStyleParser(mParser);
-        featureParser = new KmlFeatureParser(mParser);
-        containerParser = new KmlContainerParser(mParser);
+        mStyleMaps = new HashMap<String, String>();
         mGroundOverlays = new HashMap<KmlGroundOverlay, GroundOverlay>();
     }
 
@@ -65,23 +58,20 @@ import java.util.HashMap;
         while (eventType != XmlPullParser.END_DOCUMENT) {
             if (eventType == XmlPullParser.START_TAG) {
                 if (mParser.getName().matches(CONTAINER_REGEX)) {
-                    containerParser.createContainer();
-                    mFolders.add(containerParser.getContainer());
+                    mContainers.add(KmlContainerParser.createContainer(mParser));
                 }
                 if (mParser.getName().equals(STYLE)) {
-                    styleParser.createStyle();
-                    mStyles.put(styleParser.getStyle().getStyleId(), styleParser.getStyle());
+                    KmlStyle style = KmlStyleParser.createStyle(mParser);
+                    mStyles.put(style.getStyleId(), style);
                 }
                 if (mParser.getName().equals(STYLE_MAP)) {
-                    styleParser.createStyleMap();
+                    mStyleMaps.putAll(KmlStyleParser.createStyleMap(mParser));
                 }
                 if (mParser.getName().equals(PLACEMARK)) {
-                    featureParser.createPlacemark();
-                    mPlacemarks.put(featureParser.getPlacemark(), null);
+                    mPlacemarks.put(KmlFeatureParser.createPlacemark(mParser), null);
                 }
                 if (mParser.getName().equals(GROUND_OVERLAY)) {
-                    featureParser.createGroundOverlay();
-                    mGroundOverlays.put(featureParser.getGroundOverlay(), null);
+                    mGroundOverlays.put(KmlFeatureParser.createGroundOverlay(mParser), null);
                 }
             }
             eventType = mParser.next();
@@ -108,14 +98,14 @@ import java.util.HashMap;
      * @return A list of stylemaps created by the parser
      */
     /* package */ HashMap<String, String> getStyleMaps() {
-        return styleParser.getStyleMaps();
+        return mStyleMaps;
     }
 
     /**
      * @return List of folder objects created by the parser
      */
-    /* package */ ArrayList<KmlContainer> getFolders() {
-        return mFolders;
+    /* package */ ArrayList<KmlContainer> getContainers() {
+        return mContainers;
     }
 
     /**

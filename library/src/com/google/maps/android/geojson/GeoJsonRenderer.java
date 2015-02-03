@@ -24,7 +24,7 @@ import java.util.Set;
 
     private final static int POLYGON_INNER_COORDINATE_INDEX = 1;
 
-    private final static Object FEATURE_NOT_ON_MAP_VALUE = null;
+    private final static Object FEATURE_NOT_ON_MAP = null;
 
     /**
      * Value is a Marker, Polyline, Polygon or an array of these that have been created from the
@@ -39,9 +39,9 @@ import java.util.Set;
      *
      * @param map map to place GeoJsonFeature objects on
      */
-    /* package */ GeoJsonRenderer(GoogleMap map) {
-        mFeatures = new HashMap<GeoJsonFeature, Object>();
+    /* package */ GeoJsonRenderer(GoogleMap map, HashMap<GeoJsonFeature, Object> features) {
         mMap = map;
+        mFeatures = features;
     }
 
     /**
@@ -101,6 +101,10 @@ import java.util.Set;
     /* package */ void addFeature(GeoJsonFeature feature) {
         feature.addObserver(this);
         Object mapObject = null;
+        if (mFeatures.containsKey(feature)) {
+            // Remove current map objects before adding new ones
+            removeFromMap(mFeatures.get(feature));
+        }
         if (feature.hasGeometry()) {
             mapObject = addFeatureToMap(feature, feature.getGeometry());
         }
@@ -112,7 +116,10 @@ import java.util.Set;
      */
     /* package */ void removeLayerFromMap() {
         for (GeoJsonFeature feature : mFeatures.keySet()) {
-            removeFeature(feature);
+            if (mFeatures.containsKey(feature)) {
+                removeFromMap(mFeatures.get(feature));
+                feature.deleteObserver(this);
+            }
         }
     }
 
@@ -290,7 +297,7 @@ import java.util.Set;
 
     private void redrawFeatureToMap(GeoJsonFeature feature, GoogleMap map) {
         removeFromMap(mFeatures.get(feature));
-        mFeatures.put(feature, FEATURE_NOT_ON_MAP_VALUE);
+        mFeatures.put(feature, FEATURE_NOT_ON_MAP);
         mMap = map;
         if (map != null && feature.hasGeometry()) {
             mFeatures.put(feature, addFeatureToMap(feature, feature.getGeometry()));
@@ -306,7 +313,7 @@ import java.util.Set;
     public void update(Observable observable, Object data) {
         if (observable instanceof GeoJsonFeature) {
             GeoJsonFeature feature = ((GeoJsonFeature) observable);
-            boolean featureIsOnMap = mFeatures.get(feature) != FEATURE_NOT_ON_MAP_VALUE;
+            boolean featureIsOnMap = mFeatures.get(feature) != FEATURE_NOT_ON_MAP;
             if (featureIsOnMap && feature.hasGeometry()) {
                 // Checks if the feature has been added to the map and its geometry is not null
                 // TODO: change this so that we don't add and remove
@@ -314,8 +321,8 @@ import java.util.Set;
             } else if (featureIsOnMap && !feature.hasGeometry()) {
                 // Checks if feature is on map and geometry is null
                 removeFromMap(mFeatures.get(feature));
-                mFeatures.put(feature, FEATURE_NOT_ON_MAP_VALUE);
-            } else if (featureIsOnMap && feature.hasGeometry()) {
+                mFeatures.put(feature, FEATURE_NOT_ON_MAP);
+            } else if (!featureIsOnMap && feature.hasGeometry()) {
                 // Checks if the feature isn't on the map and geometry is not null
                 addFeature(feature);
             }
