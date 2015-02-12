@@ -7,13 +7,9 @@ import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
 
 import android.content.Context;
-import android.os.AsyncTask;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 
 /**
  * Document class allows for users to input their KML data and output it onto the map
@@ -23,7 +19,7 @@ public class KmlLayer {
     private final KmlRenderer mRenderer;
 
     /**
-     * Creates a new KmlLayer object - addLayer() must be called to trigger rendering onto a map.
+     * Creates a new KmlLayer object - addLayerToMap() must be called to trigger rendering onto a map.
      *
      * @param map        GoogleMap object
      * @param resourceId Raw resource KML file
@@ -73,15 +69,15 @@ public class KmlLayer {
     /**
      * Adds the KML data to the map
      */
-    public void addLayer() throws IOException, XmlPullParserException {
-        mRenderer.addKmlData();
+    public void addLayerToMap() throws IOException, XmlPullParserException {
+        mRenderer.addLayerToMap();
     }
 
     /**
      * Removes all the KML data from the map and clears all the stored placemarks
      */
-    public void clearLayer() {
-        mRenderer.removeKmlData();
+    public void removeLayerFromMap() {
+        mRenderer.removeLayerFromMap();
     }
 
     /**

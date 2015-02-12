@@ -3,19 +3,14 @@ package com.google.maps.android.utils.demo;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.maps.android.kml.KmlContainer;
-import com.google.maps.android.kml.KmlGroundOverlay;
 import com.google.maps.android.kml.KmlLayer;
 import com.google.maps.android.kml.KmlPlacemark;
 import com.google.maps.android.kml.KmlPolygon;
 
 import org.xmlpull.v1.XmlPullParserException;
 
-import android.graphics.Typeface;
 import android.os.AsyncTask;
-import android.text.Html;
-import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
-import android.widget.TextView;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -24,7 +19,9 @@ import java.io.InputStream;
 import java.net.URL;
 
 public class KmlDemoActivity extends BaseDemoActivity {
-    GoogleMap mMap;
+
+    private GoogleMap mMap;
+    private KmlLayer kmlLayer;
 
     protected int getLayoutId() {
         return R.layout.kml_demo;
@@ -32,17 +29,45 @@ public class KmlDemoActivity extends BaseDemoActivity {
 
     public void startDemo () {
         try {
-            KmlLayer kmlLayer = new KmlLayer(getMap(), R.raw.point, getApplicationContext());
-            kmlLayer.addLayer();
-            KmlContainer container = kmlLayer.getContainers().iterator().next();
-            KmlPlacemark placemark = container.getPlacemarks().iterator().next();
-            KmlPolygon polygon = (KmlPolygon) placemark.getGeometry();
-            polygon.getOuterBoundaryCoordinates().get(0);
-            getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(
-            polygon.getOuterBoundaryCoordinates().get(0), 18));
+            mMap = getMap();
+            //retrieveFileFromResource();
+            retrieveFileFromUrl();
         } catch (Exception e) {
             Log.e("Exception caught", e.toString());
         }
+    }
+
+    private void retrieveFileFromResource() {
+        try {
+            KmlLayer kmlLayer = new KmlLayer(mMap, R.raw.campus, getApplicationContext());
+            kmlLayer.addLayerToMap();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (XmlPullParserException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void retrieveFileFromUrl() {
+        String url = "https://kml-samples.googlecode.com/svn/trunk/" +
+                "morekml/Polygons/Polygons.Google_Campus.kml";
+        new DownloadKmlFile(url).execute();
+    }
+
+    private void moveCameraToKml(KmlLayer kmlLayer) {
+        //Retrieve the first container in the KML layer
+        KmlContainer container = kmlLayer.getContainers().iterator().next();
+        //Retrieve a nested container within the first container
+        container = container.getContainers().iterator().next();
+        //Retrieve the first placemark in the KML layer
+        KmlPlacemark placemark = container.getPlacemarks().iterator().next();
+        //Retrieve a polygon object in a placemark
+        KmlPolygon polygon = (KmlPolygon) placemark.getGeometry();
+        //Get the outer boundary coordinates of the polygon
+        polygon.getOuterBoundaryCoordinates().get(0);
+        //Move the camera to the polygon
+        getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(
+                polygon.getOuterBoundaryCoordinates().get(0), 16));
     }
 
     private class DownloadKmlFile extends AsyncTask<String, Void, byte[]> {
@@ -52,9 +77,7 @@ public class KmlDemoActivity extends BaseDemoActivity {
             mUrl = url;
         }
 
-        @Override
         protected byte[] doInBackground(String... params) {
-
             try {
                 InputStream is =  new URL(mUrl).openStream();
                 ByteArrayOutputStream buffer = new ByteArrayOutputStream();
@@ -63,29 +86,25 @@ public class KmlDemoActivity extends BaseDemoActivity {
                 while ((nRead = is.read(data, 0, data.length)) != -1) {
                     buffer.write(data, 0, nRead);
                 }
-
                 buffer.flush();
-
                 return buffer.toByteArray();
-
             } catch (IOException e) {
                 e.printStackTrace();
             }
             return null;
         }
 
-        @Override
         protected void onPostExecute(byte[] byteArr) {
             try {
-                KmlLayer layer = new KmlLayer(mMap, new ByteArrayInputStream(byteArr),
+                kmlLayer = new KmlLayer(mMap, new ByteArrayInputStream(byteArr),
                         getApplicationContext());
-                layer.addLayer();
+                kmlLayer.addLayerToMap();
+                moveCameraToKml(kmlLayer);
             } catch (XmlPullParserException e) {
                 e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
         }
     }
 }

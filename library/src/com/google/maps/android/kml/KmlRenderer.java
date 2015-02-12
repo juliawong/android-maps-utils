@@ -14,7 +14,6 @@ import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.maps.android.R;
 
-import android.app.Fragment;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -25,7 +24,6 @@ import android.text.Html;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.TextView;
 
 import java.io.IOException;
@@ -213,7 +211,7 @@ import java.util.Iterator;
         mGroundOverlays = groundOverlays;
     }
 
-    /* package */ void addKmlData() {
+    /* package */ void addLayerToMap() {
         mStylesRenderer.putAll(mStyles);
         assignStyleMap(mStyleMaps, mStylesRenderer);
         addGroundOverlays(mGroundOverlays, mContainers);
@@ -243,9 +241,9 @@ import java.util.Iterator;
      * @param map map to place placemark, container, style and ground overlays on
      */
     /* package */ void setMap(GoogleMap map) {
-        removeKmlData();
+        removeLayerFromMap();
         mMap = map;
-        addKmlData();
+        addLayerToMap();
     }
 
     /**
@@ -296,7 +294,7 @@ import java.util.Iterator;
     /**
      * Removes all the KML data from the map and clears all the stored placemarks
      */
-    /* package */ void removeKmlData() {
+    /* package */ void removeLayerFromMap() {
         removePlacemarks(mPlacemarks);
         removeGroundOverlays(mGroundOverlays);
         if (hasNestedContainers()) {
@@ -328,11 +326,16 @@ import java.util.Iterator;
      * @return Google Map Object of the placemark geometry after it has been added to the map.
      */
     private Object addPlacemarkToMap(KmlPlacemark placemark, boolean placemarkVisibility) {
-        String placemarkId = placemark.getStyleId();
-        KmlGeometry geometry = placemark.getGeometry();
-        KmlStyle style = getPlacemarkStyle(placemarkId);
-        KmlStyle inlineStyle = placemark.getInlineStyle();
-        return addToMap(placemark, geometry, style, inlineStyle, placemarkVisibility);
+        //If the placemark contains a geometry, then we add it to the map
+        //If it doesnt contain a geometry, we do not add anything to the map and just store values
+        if (placemark.getGeometry() != null) {
+            String placemarkId = placemark.getStyleId();
+            KmlGeometry geometry = placemark.getGeometry();
+            KmlStyle style = getPlacemarkStyle(placemarkId);
+            KmlStyle inlineStyle = placemark.getInlineStyle();
+            return addToMap(placemark, geometry, style, inlineStyle, placemarkVisibility);
+        }
+        return null;
     }
 
     /**
@@ -478,6 +481,7 @@ import java.util.Iterator;
      */
     private Object addToMap(KmlPlacemark placemark, KmlGeometry geometry, KmlStyle style,
             KmlStyle inlineStyle, boolean isVisible) {
+
         String geometryType = geometry.getGeometryType();
         if (geometryType.equals("Point")) {
             Marker marker = addPointToMap(placemark, (KmlPoint) geometry, style, inlineStyle);
@@ -495,6 +499,7 @@ import java.util.Iterator;
             return addMultiGeometryToMap(placemark, (KmlMultiGeometry) geometry, style, inlineStyle,
                     isVisible);
         }
+
         return null;
     }
 
@@ -834,11 +839,12 @@ import java.util.Iterator;
         protected void onPostExecute(Bitmap bitmap) {
             if (bitmap == null) {
                 Log.e(LOG_TAG, "Image at this URL could not be found " + mIconUrl);
-            }
-            mImagesCache.put(mIconUrl, bitmap);
-            if (mLayerVisible) {
-                addIconToMarkers(mIconUrl, mPlacemarks);
-                addContainerGroupIconsToMarkers(mIconUrl, mContainers);
+            } else {
+                mImagesCache.put(mIconUrl, bitmap);
+                if (mLayerVisible) {
+                    addIconToMarkers(mIconUrl, mPlacemarks);
+                    addContainerGroupIconsToMarkers(mIconUrl, mContainers);
+                }
             }
         }
     }
@@ -882,11 +888,12 @@ import java.util.Iterator;
         protected void onPostExecute(Bitmap bitmap) {
             if (bitmap == null) {
                 Log.e(LOG_TAG, "Image at this URL could not be found " + mGroundOverlayUrl);
-            }
-            mImagesCache.put(mGroundOverlayUrl, bitmap);
-            if (mLayerVisible) {
-                addGroundOverlayToMap(mGroundOverlayUrl, mGroundOverlays, true);
-                addGroundOverlayInContainerGroups(mGroundOverlayUrl, mContainers, true);
+            } else {
+                mImagesCache.put(mGroundOverlayUrl, bitmap);
+                if (mLayerVisible) {
+                    addGroundOverlayToMap(mGroundOverlayUrl, mGroundOverlays, true);
+                    addGroundOverlayInContainerGroups(mGroundOverlayUrl, mContainers, true);
+                }
             }
         }
     }
